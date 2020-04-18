@@ -26,6 +26,7 @@ namespace GDriveMirror
         private ICommand changePath;
         static string[] Scopes = { DriveService.Scope.Drive };
         UserCredential credential;
+        private RelayCommand logoutCommand;
 
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -60,9 +61,11 @@ namespace GDriveMirror
             }).SafeFireAndForget();
         }
 
-        public async void LogOut()
+        public async void Logout()
         {
             await credential.RevokeTokenAsync(CancellationToken.None);
+            credential = null;
+            NotifyPropertyChanged(nameof(UserName));
         }
 
         public async Task Authorize()
@@ -83,6 +86,9 @@ namespace GDriveMirror
                     new FileDataStore(credPath, true)).Result;
                 Debug.WriteLine("Credential file saved to: " + credPath);
             }
+
+            NotifyPropertyChanged(nameof(UserName));
+
 
             // Create Drive API service.
             var service = new DriveService(new BaseClientService.Initializer()
@@ -154,9 +160,18 @@ namespace GDriveMirror
         {
             get
             {
-                if (credential != null) return "Logged since " + credential.Token.IssuedUtc.ToString("F");
+                if (credential != null && !string.IsNullOrEmpty(credential.UserId))
+                {
+                    var localTime = TimeZoneInfo.ConvertTimeFromUtc(credential.Token.IssuedUtc, TimeZoneInfo.Local);
+                    return "Logged since " + localTime.ToString("F");
+                }
                 return "Not logged in";
             }
+        }
+
+        public ICommand LogoutCommand
+        {
+            get { return logoutCommand ??= new RelayCommand(Logout); }
         }
 
         private void NotifyPropertyChanged([CallerMemberName] string propertyName = "")
