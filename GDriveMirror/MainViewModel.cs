@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,17 +13,18 @@ using AsyncAwaitBestPractices;
 using GalaSoft.MvvmLight.Command;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Drive.v3;
+using Google.Apis.Drive.v3.Data;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
 using Microsoft.WindowsAPICodePack.Dialogs;
+using File = Google.Apis.Drive.v3.Data.File;
 
 namespace GDriveMirror
 {
     public class MainViewModel : INotifyPropertyChanged
     {
-        private string root;
-        private string test2;
-        private string lol;
+
+        private string _localRoot = UserSettings.Default.RootPath;
         private ICommand changePath;
         static string[] Scopes = { DriveService.Scope.Drive };
         UserCredential credential;
@@ -31,35 +33,118 @@ namespace GDriveMirror
 
         public event PropertyChangedEventHandler PropertyChanged;
 
-        public string Root
+        private TaskScheduler TScheduler { get; }
+
+        public async Task OnUIContext(Action action, CancellationToken cancellationToken = default)
         {
-            get { return root; }
+            await Task.Factory.StartNew(action, cancellationToken, TaskCreationOptions.None, TScheduler);
+        }
+        public string LocalRoot
+        {
+            get => _localRoot;
             set
             {
-                root = value;
+                _localRoot = value;
                 NotifyPropertyChanged();
             }
         }
 
         public MainViewModel()
         {
+            TScheduler = TaskScheduler.FromCurrentSynchronizationContext();
             Initialize();
         }
         public async void Initialize()
         {
-            var synchronizePath = UserSettings.Default.RootPath;
-            if (string.IsNullOrEmpty(synchronizePath))
+            if (string.IsNullOrEmpty(UserSettings.Default.RootPath))
             {
                ChangePath();
             }
 
             await Authorize();
 
-            Task.Run(() =>
+            var appName = Application.Current.MainWindow.GetType().Assembly.GetName().Name;
+            Task.Run(async () =>
             {
-                //UpdateMeta();
+                // Create Drive API service.
+                var service = new DriveService(new BaseClientService.Initializer()
+                {
+                    HttpClientInitializer = credential,
+                    ApplicationName = appName,
+                });
+
+                var rootBody = await CreateOrGetRoot(service, LocalRoot);
+                await MirrorFolder(service, LocalRoot, rootBody);
+                await MTE.Execute();
+
             }).SafeFireAndForget();
         }
+
+        public MirrorTaskExecutioner MTE = new MirrorTaskExecutioner();
+        private async Task MirrorFolder(DriveService driveService, string localParentPath, File parentFolder)
+        {
+            var parentName = Path.GetFileName(Path.GetDirectoryName(localParentPath));
+
+            //create task for creating new subfolders if not exist, or get their IDs
+            FilesResource.ListRequest listRequest = driveService.Files.List();
+
+            listRequest.PageSize = 1000;
+            listRequest.Q = $"'{parentFolder.Id}' in parents";
+            listRequest.Fields = "nextPageToken, files(id, name)";
+            IList<File> files = (await listRequest.ExecuteAsync())
+                .Files;
+
+            var remoteFolders = files.Where(f => f.MimeType == Constants.MIME_FOLDER_TYPE).Select(f=>f.Name);
+            var localFolders = Directory.GetDirectories(localParentPath).Select(Path.GetFileName);
+            var foldersToCreate = localFolders.Except(remoteFolders);
+            foreach (var f in foldersToCreate)
+            {
+                var createFolderTask = new CreateFolderTask(driveService, f, parentFolder);
+                MTE.Enqueue(createFolderTask);
+            }
+
+            //create tasks for uploading photos in localParentPath, which don't exist
+            var localFiles = Directory.GetFiles(localParentPath).Select(Path.GetFileName);
+            var toUpload = localFiles.Except(files.Where(f => f.MimeType != Constants.MIME_FOLDER_TYPE).Select(f => f.Name));
+
+            foreach (var f in toUpload)
+            {
+                var uploadPhotoTask = new UploadPhotoTask(driveService, f, parentFolder);
+                MTE.Enqueue(uploadPhotoTask);
+            }
+
+            //Recursively Mirror local subfolders
+
+        }
+        private async Task<File> CreateOrGetRoot(DriveService service, string localRootPath)
+        {
+            var rootName = Path.GetFileName(localRootPath);
+
+
+            // Define parameters of request.
+            FilesResource.ListRequest listRequest = service.Files.List();
+            
+            listRequest.PageSize = 10;
+            //find or create mirror folder in _localRoot
+
+            listRequest.Q = $"'root' in parents and name = '{rootName}'";
+            listRequest.Fields = "nextPageToken, files(id, name)";
+
+            IList<File> files = (await listRequest.ExecuteAsync())
+                .Files;
+
+            File rootBody = files.FirstOrDefault();
+            if (!files.Any())
+            {
+                rootBody = new File();
+                rootBody.Name = rootName;
+                rootBody.MimeType = Constants.MIME_FOLDER_TYPE;
+                await service.Files.Create(rootBody).ExecuteAsync();
+            }
+
+            return rootBody;
+        }
+
 
         public async void Logout()
         {
@@ -88,39 +173,6 @@ namespace GDriveMirror
             }
 
             NotifyPropertyChanged(nameof(UserName));
-
-
-            // Create Drive API service.
-            var service = new DriveService(new BaseClientService.Initializer()
-            {
-                HttpClientInitializer = credential,
-                ApplicationName = Application.Current.MainWindow.GetType().Assembly.GetName().Name,
-            });
-
-            // Define parameters of request.
-            FilesResource.ListRequest listRequest = service.Files.List();
-            listRequest.PageSize = 10;
-            listRequest.Fields = "nextPageToken, files(id, name)";
-
-            // List files.
-            IList<Google.Apis.Drive.v3.Data.File> files = listRequest.Execute()
-                .Files;
-
-            Debug.WriteLine("Files:");
-            if (files != null && files.Count > 0)
-            {
-                foreach (var file in files)
-                {
-                    Debug.WriteLine("{0} ({1})", file.Name, file.Id);
-                }
-            }
-            else
-            {
-                Debug.WriteLine("No files found.");
-            }
-            Console.Read();
-
-            //OnPropertyChanged(nameof(IsLoggedIn));
         }
         private void EnsureDirectoryExist(string directory)
         {
@@ -142,10 +194,9 @@ namespace GDriveMirror
             }
 
             UserSettings.Default.RootPath = synchronizePath;
-            Root = synchronizePath;
-            EnsureDirectoryExist(Root);
-            
-            
+            UserSettings.Default.Save();
+            LocalRoot = synchronizePath;
+            EnsureDirectoryExist(LocalRoot);
         }
 
         public ICommand ChangePathCommand

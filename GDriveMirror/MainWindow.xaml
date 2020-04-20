@@ -11,7 +11,7 @@
         >
     <Grid>
         <Button Content="Change Path" HorizontalAlignment="Left" Margin="120,46,0,0" VerticalAlignment="Top" Command="{Binding ChangePathCommand}"/>
-        <TextBlock HorizontalAlignment="Left" Margin="230,48,0,0" Text="{Binding Root}" TextWrapping="Wrap" VerticalAlignment="Top"/>
+        <TextBlock HorizontalAlignment="Left" Margin="230,48,0,0" Text="{Binding LocalRoot}" TextWrapping="Wrap" VerticalAlignment="Top"/>
         <TextBlock HorizontalAlignment="Right" Margin="0,12,12,0" Text="{Binding UserName}" TextWrapping="Wrap" VerticalAlignment="Top"/>
         <Button Content="Logout" HorizontalAlignment="Right" Margin="0,46,12,0" VerticalAlignment="Top" Command="{Binding LogoutCommand}"/>
 
