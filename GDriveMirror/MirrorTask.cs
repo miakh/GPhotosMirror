@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Globalization;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
+using GDriveMirror.Annotations;
 using Google.Apis.Drive.v3;
 using Google.Apis.Drive.v3.Data;
 using Microsoft.WindowsAPICodePack.Shell.PropertySystem;
@@ -12,20 +15,34 @@ using File = Google.Apis.Drive.v3.Data.File;
 namespace GDriveMirror
 {
 
-    public class MirrorTaskExecutioner
+    public class MirrorTaskExecutioner:INotifyPropertyChanged
     {
         private Queue<MirrorTask> MirrorTasks = new Queue<MirrorTask>();
+        private bool _isExecuting;
+
         public MirrorTaskExecutioner()
         {
         }
 
+        public bool IsExecuting
+        {
+            get => _isExecuting;
+            set
+            {
+                _isExecuting = value;
+                OnPropertyChanged();
+            }
+        }
+
         public async Task Execute()
         {
+            IsExecuting = true;
             while (MirrorTasks.Count>0)
             {
                 var task = MirrorTasks.Dequeue();
                 await task.Proceed();
             }
+            IsExecuting = false;
         }
 
         public async Task PauseExecution()
@@ -43,6 +60,13 @@ namespace GDriveMirror
             return MirrorTasks.Dequeue();
         }
 
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        [NotifyPropertyChangedInvocator]
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
     }
     public class MirrorTask
     {

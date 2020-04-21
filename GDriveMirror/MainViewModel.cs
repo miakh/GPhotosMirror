@@ -29,6 +29,7 @@ namespace GDriveMirror
         static string[] Scopes = { DriveService.Scope.Drive };
         UserCredential credential;
         private RelayCommand logoutCommand;
+        private RelayCommand executeCommand;
 
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -75,12 +76,11 @@ namespace GDriveMirror
 
                 var rootBody = await CreateOrGetRoot(service, LocalRoot);
                 await MirrorFolder(service, LocalRoot, rootBody);
-                await MTE.Execute();
 
             }).SafeFireAndForget();
         }
 
-        public MirrorTaskExecutioner MTE = new MirrorTaskExecutioner();
+        public MirrorTaskExecutioner MTE { get; set; } = new MirrorTaskExecutioner();
         private async Task MirrorFolder(DriveService driveService, string localParentPath, File parentFolder)
         {
             var parentName = Path.GetFileName(Path.GetDirectoryName(localParentPath));
@@ -223,6 +223,15 @@ namespace GDriveMirror
         public ICommand LogoutCommand
         {
             get { return logoutCommand ??= new RelayCommand(Logout); }
+        }
+
+        public ICommand ExecuteCommand
+        {
+            get { return executeCommand ??= new RelayCommand(()=>Task.Run(async () =>
+            {
+                await MTE.Execute();
+            }).SafeFireAndForget(), () => true);
+            }
         }
 
         private void NotifyPropertyChanged([CallerMemberName] string propertyName = "")
