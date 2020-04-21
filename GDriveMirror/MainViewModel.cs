@@ -76,6 +76,7 @@ namespace GDriveMirror
 
                 var rootBody = await CreateOrGetRoot(service, LocalRoot);
                 await MirrorFolder(service, LocalRoot, rootBody);
+                MTE.PreExecute();
 
             }).SafeFireAndForget();
         }
@@ -89,8 +90,8 @@ namespace GDriveMirror
             FilesResource.ListRequest listRequest = driveService.Files.List();
 
             listRequest.PageSize = 1000;
-            listRequest.Q = $"'{parentFolder.Id}' in parents";
-            listRequest.Fields = "nextPageToken, files(id, name)";
+            listRequest.Q = $"'{parentFolder.Id}' in parents and trashed = false";
+            listRequest.Fields = "nextPageToken, files(id, name, mimeType)";
             IList<File> files = (await listRequest.ExecuteAsync())
                 .Files;
 
@@ -104,12 +105,14 @@ namespace GDriveMirror
             }
 
             //create tasks for uploading photos in localParentPath, which don't exist
-            var localFiles = Directory.GetFiles(localParentPath).Select(Path.GetFileName);
-            var toUpload = localFiles.Except(files.Where(f => f.MimeType != Constants.MIME_FOLDER_TYPE).Select(f => f.Name));
+            var localFiles = Directory.GetFiles(localParentPath);
+
+            var toUpload = localFiles.Select(Path.GetFileName).Except(files.Where(f => f.MimeType != Constants.MIME_FOLDER_TYPE).Select(f => f.Name));
+
 
             foreach (var f in toUpload)
             {
-                var uploadPhotoTask = new UploadPhotoTask(driveService, f, parentFolder);
+                var uploadPhotoTask = new UploadPhotoTask(driveService,Path.Combine(localParentPath,f), parentFolder);
                 MTE.Enqueue(uploadPhotoTask);
             }
 

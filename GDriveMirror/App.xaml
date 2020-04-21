@@ -3,9 +3,10 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:GoogleDriveUploader"
              xmlns:primitives="clr-namespace:System.Windows.Controls.Ribbon.Primitives;assembly=System.Windows.Controls.Ribbon"
+             xmlns:converters="clr-namespace:GDriveMirror.Converters"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
 
-        <primitives:RibbonWindowSmallIconConverter x:Key="InvertedBooleanToVisibility" />
+        <converters:InvertedBooleanToVisibility x:Key="InvertedBooleanToVisibility" />
     </Application.Resources>
 </Application>
