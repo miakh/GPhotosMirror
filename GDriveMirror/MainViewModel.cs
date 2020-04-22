@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,6 +18,7 @@ using Google.Apis.Drive.v3.Data;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
 using Microsoft.WindowsAPICodePack.Dialogs;
+using PuppeteerSharp;
 using File = Google.Apis.Drive.v3.Data.File;
 
 namespace GDriveMirror
@@ -55,6 +57,8 @@ namespace GDriveMirror
             TScheduler = TaskScheduler.FromCurrentSynchronizationContext();
             Initialize();
         }
+
+        private Browser browser = null;
         public async void Initialize()
         {
             if (string.IsNullOrEmpty(UserSettings.Default.RootPath))
@@ -62,23 +66,65 @@ namespace GDriveMirror
                ChangePath();
             }
 
-            await Authorize();
 
-            var appName = Application.Current.MainWindow.GetType().Assembly.GetName().Name;
-            Task.Run(async () =>
+            var executable = "Google\\Chrome\\Application\\chrome.exe";
+            var programfiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+            var executableLocalPath = Path.Combine(programfiles, executable);
+            if (!System.IO.File.Exists(executableLocalPath))
             {
-                // Create Drive API service.
-                var service = new DriveService(new BaseClientService.Initializer()
-                {
-                    HttpClientInitializer = credential,
-                    ApplicationName = appName,
-                });
+                await new BrowserFetcher().DownloadAsync(BrowserFetcher.DefaultRevision);
+                executableLocalPath = null;
+            }
 
-                var rootBody = await CreateOrGetRoot(service, LocalRoot);
-                await MirrorFolder(service, LocalRoot, rootBody);
-                MTE.PreExecute();
+            var userPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var dataDirPath = "AppData\\Local\\GDriveMirror\\User Data";
+            var userDataDirPath = Path.Combine(userPath, dataDirPath);
 
-            }).SafeFireAndForget();
+            //close your browser if exception
+            //or start bundled
+
+            browser = await Puppeteer.LaunchAsync(new LaunchOptions
+            {
+                Headless = false,
+                UserDataDir = userDataDirPath,
+                ExecutablePath = executableLocalPath,
+                IgnoredDefaultArgs = new[] { "--disable-extensions" },
+                DefaultViewport = new ViewPortOptions() { Height = 800, Width = 1000 }
+            });
+
+            var page = await browser.NewPageAsync();
+
+            //using current Chrome
+            //await using var browser = await Puppeteer.ConnectAsync(new ConnectOptions(){ BrowserURL = "http://127.0.0.1:9222", DefaultViewport = new ViewPortOptions(){Height = 800, Width = 1000}});
+            //await using var page = await browser.NewPageAsync();
+
+            await page.GoToAsync(Constants.GOOGLE_DRIVE_URL, WaitUntilNavigation.Networkidle0);
+            await page.WaitForRequestAsync(
+                r => r.Method == HttpMethod.Get && r.Url.Contains(Constants.GOOGLE_DRIVE_URL),new WaitForOptions(){Timeout = 0});
+            await page.EvaluateExpressionAsync(script: "() => alert('This message is inside an alert box')");
+
+            //await page.WaitForSelectorAsync(".js-stream-tweet");
+
+            //var linkButtons = await page.QuerySelectorAllAsync(".js-stream-tweet:not(.favorited) .js-actionFavorite");
+            //await linkButtons[0].ClickAsync();
+
+            //await Authorize();
+
+            //var appName = Application.Current.MainWindow.GetType().Assembly.GetName().Name;
+            //Task.Run(async () =>
+            //{
+            //    // Create Drive API service.
+            //    var service = new DriveService(new BaseClientService.Initializer()
+            //    {
+            //        HttpClientInitializer = credential,
+            //        ApplicationName = appName,
+            //    });
+
+            //    var rootBody = await CreateOrGetRoot(service, LocalRoot);
+            //    await MirrorFolder(service, LocalRoot, rootBody);
+            //    MTE.PreExecute();
+
+            //}).SafeFireAndForget();
         }
 
         public MirrorTaskExecutioner MTE { get; set; } = new MirrorTaskExecutioner();
