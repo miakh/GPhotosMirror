@@ -19,7 +19,9 @@ using Google.Apis.Services;
 using Google.Apis.Util.Store;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using PuppeteerSharp;
+using PuppeteerSharp.Input;
 using File = Google.Apis.Drive.v3.Data.File;
+using Mouse = PuppeteerSharp.Input.Mouse;
 
 namespace GDriveMirror
 {
@@ -50,6 +52,11 @@ namespace GDriveMirror
                 _localRoot = value;
                 NotifyPropertyChanged();
             }
+        }
+
+        public string LocalRootName
+        {
+            get => new DirectoryInfo(LocalRoot).Name;
         }
 
         public MainViewModel()
@@ -97,18 +104,91 @@ namespace GDriveMirror
             //using current Chrome
             //await using var browser = await Puppeteer.ConnectAsync(new ConnectOptions(){ BrowserURL = "http://127.0.0.1:9222", DefaultViewport = new ViewPortOptions(){Height = 800, Width = 1000}});
             //await using var page = await browser.NewPageAsync();
-
+            
+            
+            //find or create rootdir
             await page.GoToAsync(Constants.GOOGLE_DRIVE_URL, WaitUntilNavigation.Networkidle0);
-            await page.WaitForRequestAsync(
-                r => r.Method == HttpMethod.Get && r.Url.Contains(Constants.GOOGLE_DRIVE_URL),new WaitForOptions(){Timeout = 0});
-            await page.EvaluateExpressionAsync(script: "() => alert('This message is inside an alert box')");
 
-            //await page.WaitForSelectorAsync(".js-stream-tweet");
+            //show MyDrive folders
+            await page.Keyboard.PressAsync("g");
+            await page.Keyboard.PressAsync("f");
+            await page.Keyboard.PressAsync("ArrowRight");
+            await page.Keyboard.PressAsync("ArrowDown");
 
-            //var linkButtons = await page.QuerySelectorAllAsync(".js-stream-tweet:not(.favorited) .js-actionFavorite");
-            //await linkButtons[0].ClickAsync();
+            var driveElemetn = await page.WaitForSelectorAsync("DIV.a-U-Li.a-U-Li-Um-mt");
+            await page.WaitForFunctionAsync("(d)=>d.getAttribute('aria-hidden') == 'false'", driveElemetn);
 
-            //await Authorize();
+
+            var treeitems = await driveElemetn.QuerySelectorAllAsync(".a-U-Li div > span");
+            var innerTexts =  treeitems.Select( t => t.EvaluateFunctionHandleAsync("(s)=> s.getAttribute('aria-label')",t));
+            var list = await Task.WhenAll(innerTexts);
+            var remoteDirsInRoot = await Task.WhenAll(list.Select(i => i.JsonValueAsync<string>()));
+            
+            //if folder is not found, create new
+            var rootFolderIndex = Array.IndexOf(remoteDirsInRoot, LocalRootName);
+            if (rootFolderIndex == -1)
+            {
+                await page.Keyboard.DownAsync("Shift");
+                await page.Keyboard.PressAsync("f");
+                await page.Keyboard.UpAsync("Shift");
+                await page.Keyboard.TypeAsync(LocalRootName);
+                await page.Keyboard.PressAsync("Enter");
+                //wait to generate new folder
+                var element = await page.WaitForSelectorAsync("DIV.WYuW0e.RDfNAe.GZwC2b.dPmH0b > DIV");
+                await page.WaitForFunctionAsync("(d)=>d.getAttribute('aria-selected') == 'true'", element);
+                //await page.WaitForFunctionAsync("()=>document.querySelector('IFRAME.lb-k-Qc')==null");
+                //enter to the folder
+                await page.Keyboard.PressAsync("Enter");
+            }
+            else
+            {
+                await treeitems[rootFolderIndex].FocusAsync();
+                await page.WaitForTimeoutAsync(Constants.ShortTimeout);
+                //await treeitems[rootFolderIndex].HoverAsync();
+
+                //await treeitems[rootFolderIndex].PressAsync("Enter");
+
+                //await page.WaitForFunctionAsync("(d)=>d.parentElement.parentElement.parentElement.parentElement.getAttribute('class') == 'a-U-ye a-U-Vd-jh'", treeitems[rootFolderIndex]);
+
+                await treeitems[rootFolderIndex].ClickAsync();
+
+            }
+            //use list view
+            var listViewButton = await page.QuerySelectorAsync("div.a-s-tb-sc-Ja-Q.a-s-tb-sc-Ja-Q-Nm.a-Ba-Ed.a-s-Ba-dj > div > div:nth-child(8) path[d='M3,5v14h18V5H3z M7,7v2H5V7H7z M5,13v-2h2v2H5z M5,15h2v2H5V15z M19,17H9v-2h10V17z M19,13H9v-2h10V13z M19,9H9V7h10V9z'");
+            if (listViewButton != null)
+            {
+                try
+                {
+                    await listViewButton.ClickAsync();
+                    await page.WaitForTimeoutAsync(Constants.ShortTimeout);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                }
+                
+            }
+
+            //hide details
+            var hideDetailsButton = await page.QuerySelectorAsync(".a-ub-va-d");
+            if (hideDetailsButton != null && await hideDetailsButton.IsIntersectingViewportAsync())
+            {
+                try
+                {
+                    await hideDetailsButton.ClickAsync();
+                    await page.WaitForTimeoutAsync(Constants.ShortTimeout);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                }
+                
+            }
+
+            //now recursively mirror folders
+            await MirrorFolderWeb(page, LocalRoot);
+
+
 
             //var appName = Application.Current.MainWindow.GetType().Assembly.GetName().Name;
             //Task.Run(async () =>
@@ -125,6 +205,30 @@ namespace GDriveMirror
             //    MTE.PreExecute();
 
             //}).SafeFireAndForget();
+        }
+
+        private async Task MirrorFolderWeb(Page page, string localParentPath)
+        {
+            //wait to load
+
+            var folderArea = await page.WaitForSelectorAsync("DIV.WYuW0e.RDfNAe.dPmH0b > DIV");
+            await page.WaitForFunctionAsync("(d)=>d.getAttribute('tabindex') == '0'", folderArea);
+
+            //get folders
+            var folders =  (await page.EvaluateExpressionAsync(
+                @"let hello = function() {
+    let elements = document.querySelectorAll('.Zz99o');
+    let elem = elements[elements.length - 2];
+    let folders = elem.querySelectorAll('.iZmuQc > .pmHCK .KL4NAf');
+    folders = Array.from(folders);
+    return folders.map(f=>f.textContent);
+};
+hello();")).ToObject<string[]>();
+            //var foldersRenderer = (await page.QuerySelectorAllAsync(".Zz99o")).TakeLast(2).First();
+           // var folders = await foldersRenderer.QuerySelectorAllAsync(".iZmuQc > .pmHCK");
+           // var remoteFolders = await Task.WhenAll(folders.Select(i => i.JsonValueAsync<string>()));
+
+            await page.WaitForTimeoutAsync(500);
         }
 
         public MirrorTaskExecutioner MTE { get; set; } = new MirrorTaskExecutioner();

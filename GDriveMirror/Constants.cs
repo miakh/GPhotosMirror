@@ -9,5 +9,7 @@
         public const string ProgramName = "GoogleDrive";
         public const string DelimiterInWindowsPath = "\\";
         public const string DelimiterExtension = ".";
+
+        public const int ShortTimeout = 250;
     }
 }
