@@ -27,10 +27,9 @@ namespace GDriveMirror
 {
     public class MainViewModel : INotifyPropertyChanged
     {
-
         private string _localRoot = UserSettings.Default.RootPath;
         private ICommand changePath;
-        static string[] Scopes = { DriveService.Scope.Drive };
+        static string[] Scopes = {DriveService.Scope.Drive};
         UserCredential credential;
         private RelayCommand logoutCommand;
         private RelayCommand executeCommand;
@@ -44,6 +43,7 @@ namespace GDriveMirror
         {
             await Task.Factory.StartNew(action, cancellationToken, TaskCreationOptions.None, TScheduler);
         }
+
         public string LocalRoot
         {
             get => _localRoot;
@@ -66,11 +66,12 @@ namespace GDriveMirror
         }
 
         private Browser browser = null;
+
         public async void Initialize()
         {
             if (string.IsNullOrEmpty(UserSettings.Default.RootPath))
             {
-               ChangePath();
+                ChangePath();
             }
 
 
@@ -95,8 +96,8 @@ namespace GDriveMirror
                 Headless = false,
                 UserDataDir = userDataDirPath,
                 ExecutablePath = executableLocalPath,
-                IgnoredDefaultArgs = new[] { "--disable-extensions" },
-                DefaultViewport = new ViewPortOptions() { Height = 800, Width = 1000 }
+                IgnoredDefaultArgs = new[] {"--disable-extensions"},
+                DefaultViewport = new ViewPortOptions() {Height = 800, Width = 1000}
             });
 
             var page = await browser.NewPageAsync();
@@ -104,8 +105,8 @@ namespace GDriveMirror
             //using current Chrome
             //await using var browser = await Puppeteer.ConnectAsync(new ConnectOptions(){ BrowserURL = "http://127.0.0.1:9222", DefaultViewport = new ViewPortOptions(){Height = 800, Width = 1000}});
             //await using var page = await browser.NewPageAsync();
-            
-            
+
+
             //find or create rootdir
             await page.GoToAsync(Constants.GOOGLE_DRIVE_URL, WaitUntilNavigation.Networkidle0);
 
@@ -120,23 +121,17 @@ namespace GDriveMirror
 
 
             var treeitems = await driveElemetn.QuerySelectorAllAsync(".a-U-Li div > span");
-            var innerTexts =  treeitems.Select( t => t.EvaluateFunctionHandleAsync("(s)=> s.getAttribute('aria-label')",t));
+            var innerTexts =
+                treeitems.Select(t => t.EvaluateFunctionHandleAsync("(s)=> s.getAttribute('aria-label')", t));
             var list = await Task.WhenAll(innerTexts);
             var remoteDirsInRoot = await Task.WhenAll(list.Select(i => i.JsonValueAsync<string>()));
-            
+
             //if folder is not found, create new
             var rootFolderIndex = Array.IndexOf(remoteDirsInRoot, LocalRootName);
             if (rootFolderIndex == -1)
             {
-                await page.Keyboard.DownAsync("Shift");
-                await page.Keyboard.PressAsync("f");
-                await page.Keyboard.UpAsync("Shift");
-                await page.Keyboard.TypeAsync(LocalRootName);
-                await page.Keyboard.PressAsync("Enter");
-                //wait to generate new folder
-                var element = await page.WaitForSelectorAsync("DIV.WYuW0e.RDfNAe.GZwC2b.dPmH0b > DIV");
-                await page.WaitForFunctionAsync("(d)=>d.getAttribute('aria-selected') == 'true'", element);
-                //await page.WaitForFunctionAsync("()=>document.querySelector('IFRAME.lb-k-Qc')==null");
+                var createNewFolder = new CreateFolderTask(page, LocalRootName);
+                await createNewFolder.Proceed();
                 //enter to the folder
                 await page.Keyboard.PressAsync("Enter");
             }
@@ -144,17 +139,13 @@ namespace GDriveMirror
             {
                 await treeitems[rootFolderIndex].FocusAsync();
                 await page.WaitForTimeoutAsync(Constants.ShortTimeout);
-                //await treeitems[rootFolderIndex].HoverAsync();
-
-                //await treeitems[rootFolderIndex].PressAsync("Enter");
-
-                //await page.WaitForFunctionAsync("(d)=>d.parentElement.parentElement.parentElement.parentElement.getAttribute('class') == 'a-U-ye a-U-Vd-jh'", treeitems[rootFolderIndex]);
 
                 await treeitems[rootFolderIndex].ClickAsync();
-
             }
+
             //use list view
-            var listViewButton = await page.QuerySelectorAsync("div.a-s-tb-sc-Ja-Q.a-s-tb-sc-Ja-Q-Nm.a-Ba-Ed.a-s-Ba-dj > div > div:nth-child(8) path[d='M3,5v14h18V5H3z M7,7v2H5V7H7z M5,13v-2h2v2H5z M5,15h2v2H5V15z M19,17H9v-2h10V17z M19,13H9v-2h10V13z M19,9H9V7h10V9z'");
+            var listViewButton = await page.QuerySelectorAsync(
+                "div.a-s-tb-sc-Ja-Q.a-s-tb-sc-Ja-Q-Nm.a-Ba-Ed.a-s-Ba-dj > div > div:nth-child(8) path[d='M3,5v14h18V5H3z M7,7v2H5V7H7z M5,13v-2h2v2H5z M5,15h2v2H5V15z M19,17H9v-2h10V17z M19,13H9v-2h10V13z M19,9H9V7h10V9z'");
             if (listViewButton != null)
             {
                 try
@@ -166,7 +157,6 @@ namespace GDriveMirror
                 {
                     Console.WriteLine(e);
                 }
-                
             }
 
             //hide details
@@ -182,12 +172,10 @@ namespace GDriveMirror
                 {
                     Console.WriteLine(e);
                 }
-                
             }
 
             //now recursively mirror folders
             await MirrorFolderWeb(page, LocalRoot);
-
 
 
             //var appName = Application.Current.MainWindow.GetType().Assembly.GetName().Name;
@@ -215,7 +203,7 @@ namespace GDriveMirror
             await page.WaitForFunctionAsync("(d)=>d.getAttribute('tabindex') == '0'", folderArea);
 
             //get folders
-            var folders =  (await page.EvaluateExpressionAsync(
+            var remoteFolders = (await page.EvaluateExpressionAsync(
                 @"let hello = function() {
     let elements = document.querySelectorAll('.Zz99o');
     let elem = elements[elements.length - 2];
@@ -224,14 +212,41 @@ namespace GDriveMirror
     return folders.map(f=>f.textContent);
 };
 hello();")).ToObject<string[]>();
-            //var foldersRenderer = (await page.QuerySelectorAllAsync(".Zz99o")).TakeLast(2).First();
-           // var folders = await foldersRenderer.QuerySelectorAllAsync(".iZmuQc > .pmHCK");
-           // var remoteFolders = await Task.WhenAll(folders.Select(i => i.JsonValueAsync<string>()));
 
+            var localFolders = Directory.GetDirectories(localParentPath).Select(Path.GetFileName);
+            var foldersToCreate = localFolders.Except(remoteFolders);
+            foreach (var f in foldersToCreate)
+            {
+                var createFolderTask = new CreateFolderTask(page, f);
+                MTE.Enqueue(createFolderTask);
+            }
+
+            //get files
+            var remoteFiles = (await page.EvaluateExpressionAsync(
+                @"let getFiles = function() {
+    let elements = document.querySelectorAll('.Zz99o');
+    let elem = elements[elements.length - 1];
+    let folders = elem.querySelectorAll('.iZmuQc > .pmHCK .KL4NAf');
+    folders = Array.from(folders);
+    return folders.map(f=>f.textContent);
+};
+getFiles();")).ToObject<string[]>();
+
+            var localFiles = Directory.GetFiles(localParentPath);
+
+            var toUpload = localFiles.Select(Path.GetFileName).Except(remoteFiles);
+            foreach (var f in toUpload)
+            {
+                var uploadPhotoTask = new UploadPhotoTask(page, Path.Combine(localParentPath, f));
+                MTE.Enqueue(uploadPhotoTask);
+            }
+
+            await MTE.Execute();
             await page.WaitForTimeoutAsync(500);
         }
 
         public MirrorTaskExecutioner MTE { get; set; } = new MirrorTaskExecutioner();
+
         private async Task MirrorFolder(DriveService driveService, string localParentPath, File parentFolder)
         {
             var parentName = Path.GetFileName(Path.GetDirectoryName(localParentPath));
@@ -245,30 +260,27 @@ hello();")).ToObject<string[]>();
             IList<File> files = (await listRequest.ExecuteAsync())
                 .Files;
 
-            var remoteFolders = files.Where(f => f.MimeType == Constants.MIME_FOLDER_TYPE).Select(f=>f.Name);
+            var remoteFolders = files.Where(f => f.MimeType == Constants.MIME_FOLDER_TYPE).Select(f => f.Name);
             var localFolders = Directory.GetDirectories(localParentPath).Select(Path.GetFileName);
             var foldersToCreate = localFolders.Except(remoteFolders);
             foreach (var f in foldersToCreate)
             {
-                var createFolderTask = new CreateFolderTask(driveService, f, parentFolder);
-                MTE.Enqueue(createFolderTask);
             }
 
             //create tasks for uploading photos in localParentPath, which don't exist
             var localFiles = Directory.GetFiles(localParentPath);
 
-            var toUpload = localFiles.Select(Path.GetFileName).Except(files.Where(f => f.MimeType != Constants.MIME_FOLDER_TYPE).Select(f => f.Name));
+            var toUpload = localFiles.Select(Path.GetFileName)
+                .Except(files.Where(f => f.MimeType != Constants.MIME_FOLDER_TYPE).Select(f => f.Name));
 
 
             foreach (var f in toUpload)
             {
-                var uploadPhotoTask = new UploadPhotoTask(driveService,Path.Combine(localParentPath,f), parentFolder);
-                MTE.Enqueue(uploadPhotoTask);
             }
 
             //Recursively Mirror local subfolders
-
         }
+
         private async Task<File> CreateOrGetRoot(DriveService service, string localRootPath)
         {
             var rootName = Path.GetFileName(localRootPath);
@@ -276,7 +288,7 @@ hello();")).ToObject<string[]>();
 
             // Define parameters of request.
             FilesResource.ListRequest listRequest = service.Files.List();
-            
+
             listRequest.PageSize = 10;
             //find or create mirror folder in _localRoot
 
@@ -327,6 +339,7 @@ hello();")).ToObject<string[]>();
 
             NotifyPropertyChanged(nameof(UserName));
         }
+
         private void EnsureDirectoryExist(string directory)
         {
             if (!Directory.Exists(directory))
@@ -354,10 +367,7 @@ hello();")).ToObject<string[]>();
 
         public ICommand ChangePathCommand
         {
-            get
-            { 
-                return changePath ??= new RelayCommand(ChangePath);
-            }
+            get { return changePath ??= new RelayCommand(ChangePath); }
         }
 
         public string UserName
@@ -369,6 +379,7 @@ hello();")).ToObject<string[]>();
                     var localTime = TimeZoneInfo.ConvertTimeFromUtc(credential.Token.IssuedUtc, TimeZoneInfo.Local);
                     return "Logged since " + localTime.ToString("F");
                 }
+
                 return "Not logged in";
             }
         }
@@ -380,10 +391,11 @@ hello();")).ToObject<string[]>();
 
         public ICommand ExecuteCommand
         {
-            get { return executeCommand ??= new RelayCommand(()=>Task.Run(async () =>
+            get
             {
-                await MTE.Execute();
-            }).SafeFireAndForget(), () => true);
+                return executeCommand ??=
+                    new RelayCommand(() => Task.Run(async () => { await MTE.Execute(); }).SafeFireAndForget(),
+                        () => true);
             }
         }
 
