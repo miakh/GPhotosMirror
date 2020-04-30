@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Google.Apis.Drive.v3;
@@ -27,23 +28,52 @@ namespace GDriveMirror
     }
 
 
-    public class CreateFolderTask:MirrorTask
+    public class CreateAlbumTask:MirrorTask
     {
+        private readonly string[] _localFilesPaths;
         public string LocalFoldername { get; }
 
         public override async Task Proceed()
         {
-            await page.Keyboard.DownAsync("Shift");
-            await page.Keyboard.PressAsync("f");
-            await page.Keyboard.UpAsync("Shift");
-            await page.Keyboard.TypeAsync(LocalFoldername);
+            var newButton = (await page.EvaluateExpressionAsync(
+                @"let newButton = function() {
+                let elem = document.querySelectorAll('.U26fgb.JRtysb.WzwrXb.YI2CVc.G6iPcb.m6aMje.ML2vC')[0];
+                elem.click();
+            };
+            newButton();"));
+            // var createButton = (await page.QuerySelectorAllAsync(".U26fgb.c7fp5b.FS4hgd.LcqyIb.m6aMje.WNmljc")).First();
+            // await createButton.ClickAsync();
+
+            await page.Keyboard.PressAsync("ArrowDown");
+           await page.WaitForTimeoutAsync(500);
+
             await page.Keyboard.PressAsync("Enter");
-            //wait to generate new folder
-            var element = await page.WaitForSelectorAsync("DIV.WYuW0e.RDfNAe.GZwC2b.dPmH0b > DIV");
-            await page.WaitForFunctionAsync("(d)=>d.getAttribute('aria-selected') == 'true'", element);
+
+            //await page.WaitForTimeoutAsync(500);
+            //var newAlbumButton = (await page.EvaluateExpressionAsync(
+            //    @"let newAlbumButton = function() {
+            //    let elem = document.querySelectorAll('.z80M1.o7Osof.mDKoOe')[0];
+            //    elem.click();
+            //};
+            //newAlbumButton();"));
+            //await newAlbumButton.ClickAsync();
+            await page.WaitForNavigationAsync(new NavigationOptions() {WaitUntil = new []{WaitUntilNavigation.Networkidle0 } });
+            await page.Keyboard.TypeAsync(LocalFoldername);
+            
+            var addPhotoButton = (await page.EvaluateExpressionHandleAsync("let addPhotos = function(){let elemArr = document.querySelectorAll('.VfPpkd-LgbsSe.VfPpkd-LgbsSe-OWXEXe-k8QpJ.nCP5yc.AjY5Oe'); elemArr[elemArr.length-1].click(); }; addPhotos();"));
+            //await addPhotoButton.ClickAsync();
+            await page.WaitForSelectorAsync(".VfPpkd-LgbsSe.ksBjEc.lKxP2d");
+            var filesFromPC = await page.QuerySelectorAsync(".VfPpkd-LgbsSe.ksBjEc.lKxP2d");
+            await filesFromPC.ClickAsync();
+            await page.WaitForSelectorAsync("input[type=file]");
+            await page.QuerySelectorAsync("input[type=file]");
+            var fileInput = await page.QuerySelectorAsync("input[type=file]");
+            await fileInput.UploadFileAsync(_localFilesPaths);
+
         }
-        public CreateFolderTask(Page page, string localFoldername) : base(page)
+        public CreateAlbumTask(Page page, string localFoldername, string[] localFilesPaths) : base(page)
         {
+            _localFilesPaths = localFilesPaths;
             LocalFoldername = localFoldername;
         }
     }
