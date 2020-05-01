@@ -669,8 +669,8 @@ namespace GDriveMirror.Annotations
   /// <code>
   /// [SourceTemplate]
   /// public static void something(this Entity x, [Macro(Expression = "guid()", Editable = -1)] string newguid) {
-  ///   /*$ var $x$Id = "$newguid$" + x.ToString();
-  ///   x.DoSomething($x$Id); */
+  ///   /*$ var $x$LiteDirectoryId = "$newguid$" + x.ToString();
+  ///   x.DoSomething($x$LiteDirectoryId); */
   /// }
   /// </code>
   /// </example>

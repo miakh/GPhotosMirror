@@ -12,10 +12,12 @@ namespace GDriveMirror
     public class MirrorTask
     {
         protected readonly Page page;
+        protected readonly LiteInstance _liteInstance;
 
-        public MirrorTask(Page page)
+        public MirrorTask(Page page, LiteInstance liteInstance)
         {
             this.page = page;
+            _liteInstance = liteInstance;
         }
         public async virtual Task Proceed()
         {
@@ -25,7 +27,7 @@ namespace GDriveMirror
 
     public class CreateAlbumTask:MirrorTask
     {
-        public string LocalFoldername { get; }
+        public string LocalFolder { get; }
 
         public override async Task Proceed()
         {
@@ -44,17 +46,20 @@ namespace GDriveMirror
 
             await page.Keyboard.PressAsync("Enter");
             await page.WaitForNavigationAsync(new NavigationOptions() {WaitUntil = new []{WaitUntilNavigation.Networkidle0 } });
-            await page.Keyboard.TypeAsync(LocalFoldername);
+            var localFolderName = Path.GetFileName(LocalFolder);
+            await page.Keyboard.TypeAsync(localFolderName);
+            
         }
-        public CreateAlbumTask(Page page, string localFoldername) : base(page)
+        public CreateAlbumTask( string localFolder, Page page, LiteInstance liteInstance) : base(page, liteInstance)
         {
-            LocalFoldername = localFoldername;
+            LocalFolder = localFolder;
         }
     }
 
     public class UploadPhotosTask : MirrorTask
     {
-        private readonly string[] _localFilesPaths;
+        private readonly IEnumerable<string> _localFilesPaths;
+        private readonly string _parent;
 
         public long FileSize
         {
@@ -63,6 +68,8 @@ namespace GDriveMirror
 
         public override async Task Proceed()
         {
+            var link = page.Url.Substring(page.Url.LastIndexOf("/", StringComparison.Ordinal) + 1);
+            _liteInstance.DirectoryUp(_parent, link);
             //handles both scenarios:
             //1. add photos to empty album
             //2. add photos to album with at least one photo
@@ -86,17 +93,20 @@ namespace GDriveMirror
             await page.WaitForSelectorAsync("input[type=file]");
             await page.QuerySelectorAsync("input[type=file]");
             var fileInput = await page.QuerySelectorAsync("input[type=file]");
-            await fileInput.UploadFileAsync(_localFilesPaths);
+            await fileInput.UploadFileAsync(_localFilesPaths.ToArray());
             await page.WaitForSelectorAsync("div.gsckL", Constants.NoTimeoutOptions);
             await page.WaitForSelectorAsync("div.gsckL", Constants.NoTimeoutOptionsHidden);
+
+            _liteInstance.FilesUp(_localFilesPaths,_parent);
             //await page.WaitForSelectorAsync("DIV.yKzHyd:not([style])", Constants.NoTimeoutOptions);
 
             //await page.WaitForSelectorAsync("DIV[jsname='qHptJd'][style='display: none;']", Constants.NoTimeoutOptions); div.gsckL
         }
 
-        public UploadPhotosTask(Page page, string[] localFilesPaths) : base(page)
+        public UploadPhotosTask(IEnumerable<string> localFilesPaths, string parent, Page page, LiteInstance liteInstance) : base(page, liteInstance)
         {
             _localFilesPaths = localFilesPaths;
+            _parent = parent;
             FileSize = localFilesPaths.Select(f=>new FileInfo(f).Length).Sum();
         }
     }

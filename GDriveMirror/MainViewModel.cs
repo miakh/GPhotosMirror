@@ -12,13 +12,78 @@ using System.Windows;
 using System.Windows.Input;
 using AsyncAwaitBestPractices;
 using GalaSoft.MvvmLight.Command;
+using LiteDB;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using PuppeteerSharp;
 
 
 namespace GDriveMirror
 {
+    public class LiteDirectory
+    {
+        public int LiteDirectoryId { get; set; }
+        public string LocalPath { get; set; }
+        public string Link { get; set; }
 
+        public List<LiteFile> LiteFiles { get; set; } = new List<LiteFile>();
+    }
+    public class LiteFile
+    {
+        public int LiteFileId { get; set; }
+        public string LocalPath { get; set; }
+        public bool  Uploaded { get; set; }
+        public DateTime LastEdit { get; set; }
+    }
+
+    public class LiteInstance:IDisposable
+    {
+
+        public IEnumerable<LiteFile> GetFilesFromDirectory(string dirPath)
+        {
+            var dir = LiteDirectories.Include(d=>d.LiteFiles).FindOne(d => d.LocalPath == dirPath);
+            return dir?.LiteFiles;
+        }
+
+        public void DirectoryUp(string path, string link)
+        {
+            var dir = new LiteDirectory(){Link = link, LocalPath = path};
+            LiteDirectories.Insert(dir);
+        }
+        public void FilesUp(IEnumerable<string> files, string directoryPath)
+        {
+            var dir = LiteDirectories.FindOne(d => d.LocalPath == directoryPath);
+            var liteFiles = files.Select(f => new LiteFile()
+                {LocalPath = f, Uploaded = true, LastEdit = File.GetLastWriteTime(f)}).ToList();
+            LiteFiles.Upsert(liteFiles);
+            dir.LiteFiles.AddRange(liteFiles);
+            LiteDirectories.Update(dir);
+        }
+        public LiteDatabase LDB { get; set; }
+
+        public void Initialize()
+        {
+            // Re-use mapper from global instance
+            var mapper = BsonMapper.Global;
+
+            // "Products" and "Customer" are from other collections (not embedded document)
+            mapper.Entity<LiteDirectory>()
+                .DbRef(x => x.LiteFiles, "LiteFile");
+
+            LDB = new LiteDatabase(Constants.DatabaseFileName);
+            LiteDirectories = LDB.GetCollection<LiteDirectory>("LiteDirectory");
+            LiteFiles = LDB.GetCollection<LiteFile>("LiteFile");
+        }
+
+        private ILiteCollection<LiteFile> LiteFiles
+        { get; set; }
+
+        public ILiteCollection<LiteDirectory> LiteDirectories { get; set; }
+
+        public void Dispose()
+        {
+            LDB?.Dispose();
+        }
+    }
     public class MainViewModel : INotifyPropertyChanged
     {
         private string _localRoot = UserSettings.Default.RootPath;
@@ -57,6 +122,7 @@ namespace GDriveMirror
             Initialize();
         }
 
+
         private Browser browser = null;
         private string userName;
 
@@ -90,7 +156,7 @@ namespace GDriveMirror
                 DefaultViewport = new ViewPortOptions() {Height = 900, Width = 1000}
             });
 
-            var page = await browser.NewPageAsync();
+            await using var page = await browser.NewPageAsync();
 
             //using current Chrome
             //await using var browser = await Puppeteer.ConnectAsync(new ConnectOptions(){ BrowserURL = "http://127.0.0.1:9222", DefaultViewport = new ViewPortOptions(){Height = 800, Width = 1000}});
@@ -114,8 +180,20 @@ namespace GDriveMirror
                         return user;
                         };
                         username();")).ToObject<string>();
+
+
+            using var liteDB = new LiteInstance();
+            liteDB.Initialize();
+
             //now recursively mirror folders
-            await MirrorFolderWeb(page, LocalRoot);
+            try
+            {
+                await MirrorFolderWeb(LocalRoot, page, liteDB);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+            }
 
 
             //var appName = Application.Current.MainWindow.GetType().Assembly.GetName().Name;
@@ -135,6 +213,8 @@ namespace GDriveMirror
             //}).SafeFireAndForget();
         }
 
+
+
         private string UserDataDirPath
         {
             get
@@ -146,77 +226,95 @@ namespace GDriveMirror
             }
         }
 
-        private async Task MirrorFolderWeb(Page page, string localParentPath)
+        private async Task MirrorFolderWeb(string parent, Page page, LiteInstance liteDB)
         {
-            if (!page.Url.Equals(Constants.GOOGLE_PHOTOS_URL_SEARCH))
-            {
-                await page.GoToAsync(Constants.GOOGLE_PHOTOS_URL_SEARCH, WaitUntilNavigation.Networkidle0);
-            }
+            
 
             //if localParent contains files
-            var localFilesNames = Directory.GetFiles(localParentPath);
-            if (localFilesNames.Any())
+            var localFiles = Directory.GetFiles(parent);
+            var filesUp = liteDB.GetFilesFromDirectory(parent);
+            IEnumerable<string> filesToGoUp = null;
+            if (filesUp != null)
             {
-                var localFiles = Directory.GetFiles(localParentPath);
-                var uploadPhotos = new UploadPhotosTask(page, localFiles);
+                filesToGoUp = localFiles.Except(filesUp.Select(f => f.LocalPath));
 
-                var folderName = Path.GetFileName(localParentPath);
-                //try to find or create album named like localParent
-                await page.Keyboard.PressAsync("/");
-                //var searchInput = await page.QuerySelectorAsync("DIV.d1dlne");
-                //await searchInput.FocusAsync();
-                //await page.WaitForSelectorAsync("BODY.EIlDfe");
-
-                //await page.WaitForSelectorAsync("DIV.d1dlne[data-expanded='true']");
-                await page.Keyboard.TypeAsync(folderName);
-
-                //await page.Keyboard.TypeAsync();
-                var searchHintArea = await page.WaitForSelectorAsync(".u3WVdc.jBmls[data-expanded=true]", Constants.NoTimeoutOptions);
-                await page.WaitForTimeoutAsync(Constants.LongTimeout);
-                var createAlbumTask = new CreateAlbumTask(page, folderName);
-
-                if (searchHintArea == null)
+            }
+            else
+            {
+                filesToGoUp = localFiles;
+            }
+            var filesToGoUpList = filesToGoUp.ToList();
+            if (filesToGoUpList.Any())
+            {
+                var dirUp = liteDB.LiteDirectories.FindOne(d => d.LocalPath == parent);
+                if(dirUp==null)
                 {
-                    MTE.Enqueue(createAlbumTask);
-                }
-                else
-                {
-                    var searchHints = await searchHintArea.QuerySelectorAllAsync(".MkjOTb.oKubKe.lySfNc");
+                    if (!page.Url.Equals(Constants.GOOGLE_PHOTOS_URL_SEARCH))
+                    {
+                        await page.GoToAsync(Constants.GOOGLE_PHOTOS_URL_SEARCH, WaitUntilNavigation.Networkidle0);
+                    }
 
-                    var remoteAlbums = (await page.EvaluateExpressionAsync(
-                        @"let hello = function() {
-                        let elem = document.querySelector('.u3WVdc.jBmls[data-expanded=true]');
-                        let folders = elem.querySelectorAll('.lROwub');
-                        folders = Array.from(folders);
-                        return folders.map(f => f.textContent);
-                        };
-                        hello();")).ToObject<string[]>();
-                    var clickIndex = Array.IndexOf(remoteAlbums, folderName);
-                    if (clickIndex == -1)
+                    var folderName = Path.GetFileName(parent);
+                    //try to find or create album named like localParent
+                    await page.Keyboard.PressAsync("/");
+                    //var searchInput = await page.QuerySelectorAsync("DIV.d1dlne");
+                    //await searchInput.FocusAsync();
+                    //await page.WaitForSelectorAsync("BODY.EIlDfe");
+
+                    //await page.WaitForSelectorAsync("DIV.d1dlne[data-expanded='true']");
+                    await page.Keyboard.TypeAsync(folderName);
+
+                    //await page.Keyboard.TypeAsync();
+                    var searchHintArea = await page.WaitForSelectorAsync(".u3WVdc.jBmls[data-expanded=true]", Constants.NoTimeoutOptions);
+                    await page.WaitForTimeoutAsync(Constants.LongTimeout);
+                    var createAlbumTask = new CreateAlbumTask(parent,page,liteDB);
+
+                    if (searchHintArea == null)
                     {
                         MTE.Enqueue(createAlbumTask);
                     }
                     else
                     {
-                        //album already exist
-                        await searchHints[clickIndex].ClickAsync();
+                        var searchHints = await searchHintArea.QuerySelectorAllAsync(".MkjOTb.oKubKe.lySfNc");
+
+                        var remoteAlbums = (await page.EvaluateExpressionAsync(
+                            @"let hello = function() {
+                            let elem = document.querySelector('.u3WVdc.jBmls[data-expanded=true]');
+                            let folders = elem.querySelectorAll('.lROwub');
+                            folders = Array.from(folders);
+                            return folders.map(f => f.textContent);
+                            };
+                            hello();")).ToObject<string[]>();
+                        var clickIndex = Array.IndexOf(remoteAlbums, folderName);
+                        if (clickIndex == -1)
+                        {
+                            MTE.Enqueue(createAlbumTask);
+                        }
+                        else
+                        {
+                            //album already exist
+                            await searchHints[clickIndex].ClickAsync();
+                        }
                     }
                 }
+                else
+                {
+                    await page.GoToAsync(Constants.GOOGLE_PHOTOS_ALBUM_URL+dirUp.Link, WaitUntilNavigation.Networkidle0);
+                }
+                var uploadPhotos = new UploadPhotosTask(filesToGoUpList, parent, page, liteDB);
                 MTE.Enqueue(uploadPhotos);
                 await MTE.Execute();
 
             }
-            var localFolders = Directory.GetDirectories(localParentPath);
+            var localFolders = Directory.GetDirectories(parent);
             
             foreach (var folder in localFolders)
             {
-                await MirrorFolderWeb(page, folder);
+                await MirrorFolderWeb(folder, page, liteDB);
             }
         }
 
         public MirrorTaskExecutioner MTE { get; set; } = new MirrorTaskExecutioner();
-
-
 
         public async void Logout()
         {
@@ -266,6 +364,7 @@ namespace GDriveMirror
                 return !string.IsNullOrEmpty(userName) ? userName : "Not logged in";
             }
         }
+
 
         public ICommand LogoutCommand
         {
