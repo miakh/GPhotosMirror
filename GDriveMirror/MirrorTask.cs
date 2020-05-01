@@ -5,11 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Google.Apis.Drive.v3;
-using Google.Apis.Drive.v3.Data;
-using Microsoft.WindowsAPICodePack.Shell.PropertySystem;
 using PuppeteerSharp;
-using File = Google.Apis.Drive.v3.Data.File;
 
 namespace GDriveMirror
 {
