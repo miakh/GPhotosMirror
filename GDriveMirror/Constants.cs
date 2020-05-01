@@ -11,7 +11,6 @@ namespace GDriveMirror
         public const string LITE_FILE = "LiteFile";
         public const string LITE_DIRECTORY = "LiteDirectory";
 
-        public const string MIME_FOLDER_TYPE = "application/vnd.google-apps.folder";
         public const string DatabaseFileName = "DB.db";
 
         public const string ProgramName = "GoogleDrive";
@@ -21,6 +20,6 @@ namespace GDriveMirror
         public const int ShortTimeout = 250;
         public const int LongTimeout = 1000;
         public static WaitForSelectorOptions NoTimeoutOptions = new WaitForSelectorOptions() { Timeout = 0 };
-        public static WaitForSelectorOptions NoTimeoutOptionsHidden = new WaitForSelectorOptions(){Timeout = 0, Hidden = true};
+        public static WaitForSelectorOptions NoTimeoutOptionsHidden = new WaitForSelectorOptions() { Timeout = 0, Hidden = true };
     }
 }

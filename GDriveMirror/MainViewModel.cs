@@ -12,84 +12,12 @@ using System.Windows;
 using System.Windows.Input;
 using AsyncAwaitBestPractices;
 using GalaSoft.MvvmLight.Command;
-using LiteDB;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using PuppeteerSharp;
 
 
 namespace GDriveMirror
 {
-    public class LiteDirectory
-    {
-        public int LiteDirectoryId { get; set; }
-        public string LocalPath { get; set; }
-        public string Link { get; set; }
-
-        public List<LiteFile> LiteFiles { get; set; } = new List<LiteFile>();
-    }
-    public class LiteFile
-    {
-        public int LiteFileId { get; set; }
-        public string LocalPath { get; set; }
-        public bool  Uploaded { get; set; }
-        public DateTime LastEdit { get; set; }
-    }
-
-    public class LiteInstance:IDisposable
-    {
-        private string userName;
-
-        public LiteInstance(string userName)
-        {
-            this.userName = userName;
-        }
-
-        public IEnumerable<LiteFile> GetFilesFromDirectory(string dirPath)
-        {
-            var dir = LiteDirectories.Include(d=>d.LiteFiles).FindOne(d => d.LocalPath == dirPath);
-            return dir?.LiteFiles;
-        }
-
-        public void DirectoryUp(string path, string link)
-        {
-            var dir = new LiteDirectory(){Link = link, LocalPath = path};
-            LiteDirectories.Insert(dir);
-        }
-        public void FilesUp(IEnumerable<string> files, string directoryPath)
-        {
-            var dir = LiteDirectories.FindOne(d => d.LocalPath == directoryPath);
-            var liteFiles = files.Select(f => new LiteFile()
-                {LocalPath = f, Uploaded = true, LastEdit = File.GetLastWriteTime(f)}).ToList();
-            LiteFiles.Upsert(liteFiles);
-            dir.LiteFiles.AddRange(liteFiles);
-            LiteDirectories.Update(dir);
-        }
-        public LiteDatabase LDB { get; set; }
-
-        public void Initialize()
-        {
-            // Re-use mapper from global instance
-            var mapper = BsonMapper.Global;
-
-            // "Products" and "Customer" are from other collections (not embedded document)
-            mapper.Entity<LiteDirectory>()
-                .DbRef(x => x.LiteFiles, Constants.LITE_FILE);
-
-            LDB = new LiteDatabase(userName+Constants.DatabaseFileName);
-            LiteDirectories = LDB.GetCollection<LiteDirectory>(Constants.LITE_DIRECTORY);
-            LiteFiles = LDB.GetCollection<LiteFile>(Constants.LITE_FILE);
-        }
-
-        private ILiteCollection<LiteFile> LiteFiles
-        { get; set; }
-
-        public ILiteCollection<LiteDirectory> LiteDirectories { get; set; }
-
-        public void Dispose()
-        {
-            LDB?.Dispose();
-        }
-    }
     public class MainViewModel : INotifyPropertyChanged
     {
         private string _localRoot = UserSettings.Default.RootPath;
@@ -175,6 +103,7 @@ namespace GDriveMirror
                 {
                     break;
                 }
+
                 //wait for login
                 await page.WaitForNavigationAsync();
             }
@@ -220,7 +149,6 @@ namespace GDriveMirror
         }
 
 
-
         private string UserDataDirPath
         {
             get
@@ -234,8 +162,6 @@ namespace GDriveMirror
 
         private async Task MirrorFolderWeb(string parent, Page page, LiteInstance liteDB)
         {
-            
-
             //if localParent contains files
             var localFiles = Directory.GetFiles(parent);
             var filesUp = liteDB.GetFilesFromDirectory(parent);
@@ -243,17 +169,17 @@ namespace GDriveMirror
             if (filesUp != null)
             {
                 filesToGoUp = localFiles.Except(filesUp.Select(f => f.LocalPath));
-
             }
             else
             {
                 filesToGoUp = localFiles;
             }
+
             var filesToGoUpList = filesToGoUp.ToList();
             if (filesToGoUpList.Any())
             {
                 var dirUp = liteDB.LiteDirectories.FindOne(d => d.LocalPath == parent);
-                if(dirUp==null)
+                if (dirUp == null)
                 {
                     if (!page.Url.Equals(Constants.GOOGLE_PHOTOS_URL_SEARCH))
                     {
@@ -263,17 +189,12 @@ namespace GDriveMirror
                     var folderName = Path.GetFileName(parent);
                     //try to find or create album named like localParent
                     await page.Keyboard.PressAsync("/");
-                    //var searchInput = await page.QuerySelectorAsync("DIV.d1dlne");
-                    //await searchInput.FocusAsync();
-                    //await page.WaitForSelectorAsync("BODY.EIlDfe");
-
-                    //await page.WaitForSelectorAsync("DIV.d1dlne[data-expanded='true']");
                     await page.Keyboard.TypeAsync(folderName);
 
-                    //await page.Keyboard.TypeAsync();
-                    var searchHintArea = await page.WaitForSelectorAsync(".u3WVdc.jBmls[data-expanded=true]", Constants.NoTimeoutOptions);
+                    var searchHintArea = await page.WaitForSelectorAsync(".u3WVdc.jBmls[data-expanded=true]",
+                        Constants.NoTimeoutOptions);
                     await page.WaitForTimeoutAsync(Constants.LongTimeout);
-                    var createAlbumTask = new CreateAlbumTask(parent,page,liteDB);
+                    var createAlbumTask = new CreateAlbumTask(parent, page, liteDB);
 
                     if (searchHintArea == null)
                     {
@@ -305,15 +226,17 @@ namespace GDriveMirror
                 }
                 else
                 {
-                    await page.GoToAsync(Constants.GOOGLE_PHOTOS_ALBUM_URL+dirUp.Link, WaitUntilNavigation.Networkidle0);
+                    await page.GoToAsync(Constants.GOOGLE_PHOTOS_ALBUM_URL + dirUp.Link,
+                        WaitUntilNavigation.Networkidle0);
                 }
+
                 var uploadPhotos = new UploadPhotosTask(filesToGoUpList, parent, page, liteDB);
                 MTE.Enqueue(uploadPhotos);
                 await MTE.Execute();
-
             }
+
             var localFolders = Directory.GetDirectories(parent);
-            
+
             foreach (var folder in localFolders)
             {
                 await MirrorFolderWeb(folder, page, liteDB);
@@ -365,10 +288,7 @@ namespace GDriveMirror
                 userName = value;
                 NotifyPropertyChanged();
             }
-            get
-            {
-                return !string.IsNullOrEmpty(userName) ? userName : "Not logged in";
-            }
+            get => !string.IsNullOrEmpty(userName) ? userName : "Not logged in";
         }
 
 
