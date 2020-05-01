@@ -58,6 +58,7 @@ namespace GDriveMirror
         }
 
         private Browser browser = null;
+        private string userName;
 
         public async void Initialize()
         {
@@ -76,9 +77,6 @@ namespace GDriveMirror
                 executableLocalPath = null;
             }
 
-            var userPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            var dataDirPath = "AppData\\Local\\GDriveMirror\\User Data";
-            var userDataDirPath = Path.Combine(userPath, dataDirPath);
 
             //close your browser if exception
             //or start bundled
@@ -86,11 +84,10 @@ namespace GDriveMirror
             browser = await Puppeteer.LaunchAsync(new LaunchOptions
             {
                 Headless = false,
-                UserDataDir = userDataDirPath,
+                UserDataDir = UserDataDirPath,
                 ExecutablePath = executableLocalPath,
                 IgnoredDefaultArgs = new[] {"--disable-extensions"},
-                
-                DefaultViewport = new ViewPortOptions() {Height = 800, Width = 1000}
+                DefaultViewport = new ViewPortOptions() {Height = 900, Width = 1000}
             });
 
             var page = await browser.NewPageAsync();
@@ -99,9 +96,24 @@ namespace GDriveMirror
             //await using var browser = await Puppeteer.ConnectAsync(new ConnectOptions(){ BrowserURL = "http://127.0.0.1:9222", DefaultViewport = new ViewPortOptions(){Height = 800, Width = 1000}});
             //await using var page = await browser.NewPageAsync();
 
+            await page.GoToAsync(Constants.GOOGLE_PHOTOS_URL, WaitUntilNavigation.Networkidle0);
+            while (true)
+            {
+                if (page.Url.Contains(Constants.GOOGLE_PHOTOS_URL))
+                {
+                    break;
+                }
+                //wait for login
+                await page.WaitForNavigationAsync();
+            }
 
-
-            
+            UserName = (await page.EvaluateExpressionAsync(
+                @"let username = function() {
+                        let elem = document.querySelector('.gb_D.gb_Ra.gb_i');
+                        let user = elem.getAttribute('aria-label');
+                        return user;
+                        };
+                        username();")).ToObject<string>();
             //now recursively mirror folders
             await MirrorFolderWeb(page, LocalRoot);
 
@@ -123,9 +135,23 @@ namespace GDriveMirror
             //}).SafeFireAndForget();
         }
 
+        private string UserDataDirPath
+        {
+            get
+            {
+                var userPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                var dataDirPath = "AppData\\Local\\GDriveMirror\\User Data";
+                var userDataDirPath = Path.Combine(userPath, dataDirPath);
+                return userDataDirPath;
+            }
+        }
+
         private async Task MirrorFolderWeb(Page page, string localParentPath)
         {
-            await page.GoToAsync(Constants.GOOGLE_PHOTOS_URL_SEARCH, WaitUntilNavigation.Networkidle0);
+            if (!page.Url.Equals(Constants.GOOGLE_PHOTOS_URL_SEARCH))
+            {
+                await page.GoToAsync(Constants.GOOGLE_PHOTOS_URL_SEARCH, WaitUntilNavigation.Networkidle0);
+            }
 
             //if localParent contains files
             var localFilesNames = Directory.GetFiles(localParentPath);
@@ -194,6 +220,7 @@ namespace GDriveMirror
 
         public async void Logout()
         {
+            Directory.Delete(UserDataDirPath, true);
             NotifyPropertyChanged(nameof(UserName));
         }
 
@@ -229,10 +256,14 @@ namespace GDriveMirror
 
         public string UserName
         {
+            set
+            {
+                userName = value;
+                NotifyPropertyChanged();
+            }
             get
             {
-
-                return "Not logged in";
+                return !string.IsNullOrEmpty(userName) ? userName : "Not logged in";
             }
         }
 
