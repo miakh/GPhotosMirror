@@ -44,7 +44,7 @@ namespace GDriveMirror
             // await createButton.ClickAsync();
 
             await page.Keyboard.PressAsync("ArrowDown");
-           await page.WaitForTimeoutAsync(500);
+           await page.WaitForTimeoutAsync(Constants.LongTimeout);
 
             await page.Keyboard.PressAsync("Enter");
             await page.WaitForNavigationAsync(new NavigationOptions() {WaitUntil = new []{WaitUntilNavigation.Networkidle0 } });
@@ -70,12 +70,14 @@ namespace GDriveMirror
             //handles both scenarios:
             //1. add photos to empty album
             //2. add photos to album with at least one photo
-            var addPhotoButton = (await page.EvaluateExpressionHandleAsync(@"
+
+            await page.WaitForSelectorAsync(".VfPpkd-LgbsSe.VfPpkd-LgbsSe-OWXEXe-k8QpJ.nCP5yc.AjY5Oe");
+            var addPhotoButton = (await page.EvaluateExpressionAsync(@"
             let addPhotos = function() {
             let elemArr = document.querySelectorAll('.VfPpkd-LgbsSe.VfPpkd-LgbsSe-OWXEXe-k8QpJ.nCP5yc.AjY5Oe');
             if (elemArr.length < 2) {
                 elemArr = document.querySelectorAll('.VfPpkd-Bz112c-LgbsSe.yHy1rc.eT1oJ.cx6Jyd');
-                elemArr[1].click();
+                elemArr[elemArr.length - 2].click();
             } else {
                 elemArr[elemArr.length - 1].click();
             }
@@ -89,7 +91,11 @@ namespace GDriveMirror
             await page.QuerySelectorAsync("input[type=file]");
             var fileInput = await page.QuerySelectorAsync("input[type=file]");
             await fileInput.UploadFileAsync(_localFilesPaths);
-            await page.WaitForSelectorAsync("DIV[jsname='qHptJd'][style='display: none;']", new WaitForSelectorOptions(){Timeout = 0});
+            await page.WaitForSelectorAsync("div.gsckL", Constants.NoTimeoutOptions);
+            await page.WaitForSelectorAsync("div.gsckL", Constants.NoTimeoutOptionsHidden);
+            //await page.WaitForSelectorAsync("DIV.yKzHyd:not([style])", Constants.NoTimeoutOptions);
+
+            //await page.WaitForSelectorAsync("DIV[jsname='qHptJd'][style='display: none;']", Constants.NoTimeoutOptions); div.gsckL
         }
 
         public UploadPhotosTask(Page page, string[] localFilesPaths) : base(page)

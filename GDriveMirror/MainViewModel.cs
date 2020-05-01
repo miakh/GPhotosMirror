@@ -110,7 +110,6 @@ namespace GDriveMirror
             //await using var page = await browser.NewPageAsync();
 
 
-            await page.GoToAsync(Constants.GOOGLE_PHOTOS_URL_SEARCH, WaitUntilNavigation.Networkidle0);
 
             
             //now recursively mirror folders
@@ -136,7 +135,8 @@ namespace GDriveMirror
 
         private async Task MirrorFolderWeb(Page page, string localParentPath)
         {
-            var se = await page.Target.CreateCDPSessionAsync();
+            await page.GoToAsync(Constants.GOOGLE_PHOTOS_URL_SEARCH, WaitUntilNavigation.Networkidle0);
+
             //if localParent contains files
             var localFilesNames = Directory.GetFiles(localParentPath);
             if (localFilesNames.Any())
@@ -155,7 +155,8 @@ namespace GDriveMirror
                 await page.Keyboard.TypeAsync(folderName);
 
                 //await page.Keyboard.TypeAsync();
-                var searchHintArea = await page.QuerySelectorAsync(".u3WVdc.jBmls[data-expanded=true]");
+                var searchHintArea = await page.WaitForSelectorAsync(".u3WVdc.jBmls[data-expanded=true]", Constants.NoTimeoutOptions);
+                await page.WaitForTimeoutAsync(Constants.LongTimeout);
                 var createAlbumTask = new CreateAlbumTask(page, folderName);
 
                 if (searchHintArea == null)
@@ -164,7 +165,7 @@ namespace GDriveMirror
                 }
                 else
                 {
-                    var searchHints = await searchHintArea.QuerySelectorAllAsync(".lROwub");
+                    var searchHints = await searchHintArea.QuerySelectorAllAsync(".MkjOTb.oKubKe.lySfNc");
 
                     var remoteAlbums = (await page.EvaluateExpressionAsync(
                         @"let hello = function() {
@@ -211,7 +212,7 @@ namespace GDriveMirror
             listRequest.Fields = "nextPageToken, files(id, name, mimeType)";
             IList<File> files = (await listRequest.ExecuteAsync())
                 .Files;
-
+        
             var remoteFolders = files.Where(f => f.MimeType == Constants.MIME_FOLDER_TYPE).Select(f => f.Name);
             var localFolders = Directory.GetDirectories(localParentPath).Select(Path.GetFileName);
             var foldersToCreate = localFolders.Except(remoteFolders);
