@@ -20,11 +20,13 @@ using Google.Apis.Util.Store;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using PuppeteerSharp;
 using PuppeteerSharp.Input;
+using PuppeteerSharp.Transport;
 using File = Google.Apis.Drive.v3.Data.File;
 using Mouse = PuppeteerSharp.Input.Mouse;
 
 namespace GDriveMirror
 {
+
     public class MainViewModel : INotifyPropertyChanged
     {
         private string _localRoot = UserSettings.Default.RootPath;
@@ -97,6 +99,7 @@ namespace GDriveMirror
                 UserDataDir = userDataDirPath,
                 ExecutablePath = executableLocalPath,
                 IgnoredDefaultArgs = new[] {"--disable-extensions"},
+                
                 DefaultViewport = new ViewPortOptions() {Height = 800, Width = 1000}
             });
 
@@ -133,11 +136,13 @@ namespace GDriveMirror
 
         private async Task MirrorFolderWeb(Page page, string localParentPath)
         {
+            var se = await page.Target.CreateCDPSessionAsync();
             //if localParent contains files
             var localFilesNames = Directory.GetFiles(localParentPath);
             if (localFilesNames.Any())
             {
                 var localFiles = Directory.GetFiles(localParentPath);
+                var uploadPhotos = new UploadPhotosTask(page, localFiles);
 
                 var folderName = Path.GetFileName(localParentPath);
                 //try to find or create album named like localParent
@@ -151,82 +156,45 @@ namespace GDriveMirror
 
                 //await page.Keyboard.TypeAsync();
                 var searchHintArea = await page.QuerySelectorAsync(".u3WVdc.jBmls[data-expanded=true]");
-                if (searchHintArea != null)
+                var createAlbumTask = new CreateAlbumTask(page, folderName);
+
+                if (searchHintArea == null)
+                {
+                    MTE.Enqueue(createAlbumTask);
+                }
+                else
                 {
                     var searchHints = await searchHintArea.QuerySelectorAllAsync(".lROwub");
 
                     var remoteAlbums = (await page.EvaluateExpressionAsync(
                         @"let hello = function() {
-                let elem = document.querySelector('.u3WVdc.jBmls[data-expanded=true]');
-                let folders = elem.querySelectorAll('.lROwub');
-                folders = Array.from(folders);
-                return folders.map(f => f.textContent);
-            };
-            hello();")).ToObject<string[]>();
+                        let elem = document.querySelector('.u3WVdc.jBmls[data-expanded=true]');
+                        let folders = elem.querySelectorAll('.lROwub');
+                        folders = Array.from(folders);
+                        return folders.map(f => f.textContent);
+                        };
+                        hello();")).ToObject<string[]>();
                     var clickIndex = Array.IndexOf(remoteAlbums, folderName);
-                    if (clickIndex > -1)
+                    if (clickIndex == -1)
+                    {
+                        MTE.Enqueue(createAlbumTask);
+                    }
+                    else
                     {
                         //album already exist
                         await searchHints[clickIndex].ClickAsync();
-                        //go different way
-                        //fill with missing photos
-                        return;
                     }
-
                 }
-                //create new album
-                await page.GoToAsync(Constants.GOOGLE_PHOTOS_URL);
-                var createAlbumTask = new CreateAlbumTask(page, folderName, localFiles);
-                MTE.Enqueue(createAlbumTask);
-                //try to find individual files or upload them
-
-
+                MTE.Enqueue(uploadPhotos);
+                await MTE.Execute();
 
             }
-
-
-
-            //            //get folders
-            //            var remoteFolders = (await page.EvaluateExpressionAsync(
-            //                @"let hello = function() {
-            //    let elements = document.querySelectorAll('.Zz99o');
-            //    let elem = elements[elements.length - 2];
-            //    let folders = elem.querySelectorAll('.iZmuQc > .pmHCK .KL4NAf');
-            //    folders = Array.from(folders);
-            //    return folders.map(f=>f.textContent);
-            //};
-            //hello();")).ToObject<string[]>();
-
-            //            var localFolders = Directory.GetDirectories(localParentPath).Select(Path.GetFileName);
-            //            var foldersToCreate = localFolders.Except(remoteFolders);
-            //            foreach (var f in foldersToCreate)
-            //            {
-            //                var createFolderTask = new CreateAlbumTask(page, f);
-            //                MTE.Enqueue(createFolderTask);
-            //            }
-
-            //            //get files
-            //            var remoteFiles = (await page.EvaluateExpressionAsync(
-            //                @"let getFiles = function() {
-            //    let elements = document.querySelectorAll('.Zz99o');
-            //    let elem = elements[elements.length - 1];
-            //    let folders = elem.querySelectorAll('.iZmuQc > .pmHCK .KL4NAf');
-            //    folders = Array.from(folders);
-            //    return folders.map(f=>f.textContent);
-            //};
-            //getFiles();")).ToObject<string[]>();
-
-            //             localFilesNames = Directory.GetFiles(localParentPath);
-
-            //            var toUpload = localFilesNames.Select(Path.GetFileName).Except(remoteFiles);
-            //            foreach (var f in toUpload)
-            //            {
-            //                var uploadPhotoTask = new UploadPhotoTask(page, Path.Combine(localParentPath, f));
-            //                MTE.Enqueue(uploadPhotoTask);
-            //            }
-
-            await MTE.Execute();
-            await page.WaitForTimeoutAsync(500);
+            var localFolders = Directory.GetDirectories(localParentPath);
+            
+            foreach (var folder in localFolders)
+            {
+                await MirrorFolderWeb(page, folder);
+            }
         }
 
         public MirrorTaskExecutioner MTE { get; set; } = new MirrorTaskExecutioner();

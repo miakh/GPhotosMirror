@@ -30,7 +30,7 @@ namespace GDriveMirror
         {
             foreach (var mirrorTask in MirrorTasks)
             {
-                if (mirrorTask is UploadPhotoTask uploadPhotoTask)
+                if (mirrorTask is UploadPhotosTask uploadPhotoTask)
                 {
                     AllBytesUpload += uploadPhotoTask.FileSize;
                     AllFilesUpload += 1;
@@ -49,7 +49,7 @@ namespace GDriveMirror
             {
                 var task = MirrorTasks.Dequeue();
                 await task.Proceed();
-                if (task is UploadPhotoTask uploadPhotoTask)
+                if (task is UploadPhotosTask uploadPhotoTask)
                 {
                     RemainingBytesUpload -= uploadPhotoTask.FileSize;
                     RemainingFilesUpload -= 1;

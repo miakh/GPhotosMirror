@@ -27,14 +27,13 @@ namespace GDriveMirror
         }
     }
 
-
     public class CreateAlbumTask:MirrorTask
     {
-        private readonly string[] _localFilesPaths;
         public string LocalFoldername { get; }
 
         public override async Task Proceed()
         {
+            await page.GoToAsync(Constants.GOOGLE_PHOTOS_URL);
             var newButton = (await page.EvaluateExpressionAsync(
                 @"let newButton = function() {
                 let elem = document.querySelectorAll('.U26fgb.JRtysb.WzwrXb.YI2CVc.G6iPcb.m6aMje.ML2vC')[0];
@@ -48,19 +47,40 @@ namespace GDriveMirror
            await page.WaitForTimeoutAsync(500);
 
             await page.Keyboard.PressAsync("Enter");
-
-            //await page.WaitForTimeoutAsync(500);
-            //var newAlbumButton = (await page.EvaluateExpressionAsync(
-            //    @"let newAlbumButton = function() {
-            //    let elem = document.querySelectorAll('.z80M1.o7Osof.mDKoOe')[0];
-            //    elem.click();
-            //};
-            //newAlbumButton();"));
-            //await newAlbumButton.ClickAsync();
             await page.WaitForNavigationAsync(new NavigationOptions() {WaitUntil = new []{WaitUntilNavigation.Networkidle0 } });
             await page.Keyboard.TypeAsync(LocalFoldername);
-            
-            var addPhotoButton = (await page.EvaluateExpressionHandleAsync("let addPhotos = function(){let elemArr = document.querySelectorAll('.VfPpkd-LgbsSe.VfPpkd-LgbsSe-OWXEXe-k8QpJ.nCP5yc.AjY5Oe'); elemArr[elemArr.length-1].click(); }; addPhotos();"));
+        }
+        public CreateAlbumTask(Page page, string localFoldername) : base(page)
+        {
+            LocalFoldername = localFoldername;
+        }
+    }
+
+    public class UploadPhotosTask : MirrorTask
+    {
+        private readonly string[] _localFilesPaths;
+
+        public long FileSize
+        {
+            get;
+        }
+
+        public override async Task Proceed()
+        {
+            //handles both scenarios:
+            //1. add photos to empty album
+            //2. add photos to album with at least one photo
+            var addPhotoButton = (await page.EvaluateExpressionHandleAsync(@"
+            let addPhotos = function() {
+            let elemArr = document.querySelectorAll('.VfPpkd-LgbsSe.VfPpkd-LgbsSe-OWXEXe-k8QpJ.nCP5yc.AjY5Oe');
+            if (elemArr.length < 2) {
+                elemArr = document.querySelectorAll('.VfPpkd-Bz112c-LgbsSe.yHy1rc.eT1oJ.cx6Jyd');
+                elemArr[1].click();
+            } else {
+                elemArr[elemArr.length - 1].click();
+            }
+            };
+            addPhotos();"));
             //await addPhotoButton.ClickAsync();
             await page.WaitForSelectorAsync(".VfPpkd-LgbsSe.ksBjEc.lKxP2d");
             var filesFromPC = await page.QuerySelectorAsync(".VfPpkd-LgbsSe.ksBjEc.lKxP2d");
@@ -69,41 +89,13 @@ namespace GDriveMirror
             await page.QuerySelectorAsync("input[type=file]");
             var fileInput = await page.QuerySelectorAsync("input[type=file]");
             await fileInput.UploadFileAsync(_localFilesPaths);
-
+            await page.WaitForSelectorAsync("DIV[jsname='qHptJd'][style='display: none;']", new WaitForSelectorOptions(){Timeout = 0});
         }
-        public CreateAlbumTask(Page page, string localFoldername, string[] localFilesPaths) : base(page)
+
+        public UploadPhotosTask(Page page, string[] localFilesPaths) : base(page)
         {
             _localFilesPaths = localFilesPaths;
-            LocalFoldername = localFoldername;
-        }
-    }
-
-    public class UploadPhotoTask : MirrorTask
-    {
-        public string LocalFilePath { get; }
-        public long FileSize
-        {
-            get;
-        }
-
-        public override async Task Proceed()
-        {
-            //var handle = await page.QuerySelectorAsync(".v9czFf");
-
-            var newButton = await page.QuerySelectorAsync("button.RTMQvb");
-            await newButton.ClickAsync();
-            await newButton.PressAsync("ArrowDown");
-            await newButton.PressAsync("ArrowDown");
-            await newButton.PressAsync("Enter");
-            await page.QuerySelectorAsync("input[type=file]");
-            var fileInput = await page.QuerySelectorAsync("input[type=file]");
-            await fileInput.UploadFileAsync(LocalFilePath);
-        }
-
-        public UploadPhotoTask(Page page, string localFilePath) : base(page)
-        {
-            LocalFilePath = localFilePath;
-            FileSize = new FileInfo(LocalFilePath).Length;
+            FileSize = localFilesPaths.Select(f=>new FileInfo(f).Length).Sum();
         }
     }
 }
