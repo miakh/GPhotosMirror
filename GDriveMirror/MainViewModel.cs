@@ -37,6 +37,12 @@ namespace GDriveMirror
 
     public class LiteInstance:IDisposable
     {
+        private string userName;
+
+        public LiteInstance(string userName)
+        {
+            this.userName = userName;
+        }
 
         public IEnumerable<LiteFile> GetFilesFromDirectory(string dirPath)
         {
@@ -67,11 +73,11 @@ namespace GDriveMirror
 
             // "Products" and "Customer" are from other collections (not embedded document)
             mapper.Entity<LiteDirectory>()
-                .DbRef(x => x.LiteFiles, "LiteFile");
+                .DbRef(x => x.LiteFiles, Constants.LITE_FILE);
 
-            LDB = new LiteDatabase(Constants.DatabaseFileName);
-            LiteDirectories = LDB.GetCollection<LiteDirectory>("LiteDirectory");
-            LiteFiles = LDB.GetCollection<LiteFile>("LiteFile");
+            LDB = new LiteDatabase(userName+Constants.DatabaseFileName);
+            LiteDirectories = LDB.GetCollection<LiteDirectory>(Constants.LITE_DIRECTORY);
+            LiteFiles = LDB.GetCollection<LiteFile>(Constants.LITE_FILE);
         }
 
         private ILiteCollection<LiteFile> LiteFiles
@@ -175,14 +181,14 @@ namespace GDriveMirror
 
             UserName = (await page.EvaluateExpressionAsync(
                 @"let username = function() {
-                        let elem = document.querySelector('.gb_D.gb_Ra.gb_i');
-                        let user = elem.getAttribute('aria-label');
-                        return user;
+                        let elem = document.querySelectorAll('.gb_pe div');
+                        let userMail = elem[elem.Length-1].textContent;
+                        return userMail;
                         };
                         username();")).ToObject<string>();
 
 
-            using var liteDB = new LiteInstance();
+            using var liteDB = new LiteInstance(UserName);
             liteDB.Initialize();
 
             //now recursively mirror folders

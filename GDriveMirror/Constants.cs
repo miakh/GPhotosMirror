@@ -8,6 +8,8 @@ namespace GDriveMirror
         public const string GOOGLE_PHOTOS_URL = "https://photos.google.com/";
         public const string GOOGLE_PHOTOS_ALBUM_URL = "https://photos.google.com/album/";
 
+        public const string LITE_FILE = "LiteFile";
+        public const string LITE_DIRECTORY = "LiteDirectory";
 
         public const string MIME_FOLDER_TYPE = "application/vnd.google-apps.folder";
         public const string DatabaseFileName = "DB.db";
