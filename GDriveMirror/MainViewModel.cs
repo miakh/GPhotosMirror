@@ -57,8 +57,8 @@ namespace GDriveMirror
         }
 
 
-        private Browser browser = null;
         private string userName;
+        private RelayCommand stopExecutionCommand;
 
         public async void Initialize()
         {
@@ -81,7 +81,7 @@ namespace GDriveMirror
             //close your browser if exception
             //or start bundled
 
-            browser = await Puppeteer.LaunchAsync(new LaunchOptions
+            var browser = await Puppeteer.LaunchAsync(new LaunchOptions
             {
                 Headless = false,
                 UserDataDir = UserDataDirPath,
@@ -90,7 +90,7 @@ namespace GDriveMirror
                 DefaultViewport = new ViewPortOptions() {Height = 900, Width = 1000}
             });
 
-            await using var page = await browser.NewPageAsync();
+            var page = await browser.NewPageAsync();
 
             //using current Chrome
             //await using var browser = await Puppeteer.ConnectAsync(new ConnectOptions(){ BrowserURL = "http://127.0.0.1:9222", DefaultViewport = new ViewPortOptions(){Height = 800, Width = 1000}});
@@ -111,43 +111,26 @@ namespace GDriveMirror
             UserName = (await page.EvaluateExpressionAsync(
                 @"let username = function() {
                         let elem = document.querySelectorAll('.gb_pe div');
-                        let userMail = elem[elem.Length-1].textContent;
+                        let userMail = elem[elem.length-1].innerText;
                         return userMail;
                         };
                         username();")).ToObject<string>();
 
 
-            using var liteDB = new LiteInstance(UserName);
+            var liteDB = new LiteInstance(UserName);
             liteDB.Initialize();
 
-            //now recursively mirror folders
-            try
+            MTE = new MirrorTaskExecutioner(async () =>
             {
-                await MirrorFolderWeb(LocalRoot, page, liteDB);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-            }
-
-
-            //var appName = Application.Current.MainWindow.GetType().Assembly.GetName().Name;
-            //Task.Run(async () =>
-            //{
-            //    // Create Drive API service.
-            //    var service = new DriveService(new BaseClientService.Initializer()
-            //    {
-            //        HttpClientInitializer = credential,
-            //        ApplicationName = appName,
-            //    });
-
-            //    var rootBody = await CreateOrGetRoot(service, LocalRoot);
-            //    await MirrorFolder(service, LocalRoot, rootBody);
-            //    MTE.PreExecute();
-
-            //}).SafeFireAndForget();
+                await page.CloseAsync();
+                await browser.CloseAsync();
+                await page.DisposeAsync();
+                await browser.DisposeAsync();
+                liteDB.Dispose();
+            });
+            var rootOpenCreate = new OpenOrCreateAlbumTask(LocalRoot, MTE, page, liteDB);
+            MTE.Enqueue(rootOpenCreate);
         }
-
 
         private string UserDataDirPath
         {
@@ -160,90 +143,7 @@ namespace GDriveMirror
             }
         }
 
-        private async Task MirrorFolderWeb(string parent, Page page, LiteInstance liteDB)
-        {
-            //if localParent contains files
-            var localFiles = Directory.GetFiles(parent);
-            var filesUp = liteDB.GetFilesFromDirectory(parent);
-            IEnumerable<string> filesToGoUp = null;
-            if (filesUp != null)
-            {
-                filesToGoUp = localFiles.Except(filesUp.Select(f => f.LocalPath));
-            }
-            else
-            {
-                filesToGoUp = localFiles;
-            }
-
-            var filesToGoUpList = filesToGoUp.ToList();
-            if (filesToGoUpList.Any())
-            {
-                var dirUp = liteDB.LiteDirectories.FindOne(d => d.LocalPath == parent);
-                if (dirUp == null)
-                {
-                    if (!page.Url.Equals(Constants.GOOGLE_PHOTOS_URL_SEARCH))
-                    {
-                        await page.GoToAsync(Constants.GOOGLE_PHOTOS_URL_SEARCH, WaitUntilNavigation.Networkidle0);
-                    }
-
-                    var folderName = Path.GetFileName(parent);
-                    //try to find or create album named like localParent
-                    await page.Keyboard.PressAsync("/");
-                    await page.Keyboard.TypeAsync(folderName);
-
-                    var searchHintArea = await page.WaitForSelectorAsync(".u3WVdc.jBmls[data-expanded=true]",
-                        Constants.NoTimeoutOptions);
-                    await page.WaitForTimeoutAsync(Constants.LongTimeout);
-                    var createAlbumTask = new CreateAlbumTask(parent, page, liteDB);
-
-                    if (searchHintArea == null)
-                    {
-                        MTE.Enqueue(createAlbumTask);
-                    }
-                    else
-                    {
-                        var searchHints = await searchHintArea.QuerySelectorAllAsync(".MkjOTb.oKubKe.lySfNc");
-
-                        var remoteAlbums = (await page.EvaluateExpressionAsync(
-                            @"let hello = function() {
-                            let elem = document.querySelector('.u3WVdc.jBmls[data-expanded=true]');
-                            let folders = elem.querySelectorAll('.lROwub');
-                            folders = Array.from(folders);
-                            return folders.map(f => f.textContent);
-                            };
-                            hello();")).ToObject<string[]>();
-                        var clickIndex = Array.IndexOf(remoteAlbums, folderName);
-                        if (clickIndex == -1)
-                        {
-                            MTE.Enqueue(createAlbumTask);
-                        }
-                        else
-                        {
-                            //album already exist
-                            await searchHints[clickIndex].ClickAsync();
-                        }
-                    }
-                }
-                else
-                {
-                    await page.GoToAsync(Constants.GOOGLE_PHOTOS_ALBUM_URL + dirUp.Link,
-                        WaitUntilNavigation.Networkidle0);
-                }
-
-                var uploadPhotos = new UploadPhotosTask(filesToGoUpList, parent, page, liteDB);
-                MTE.Enqueue(uploadPhotos);
-                await MTE.Execute();
-            }
-
-            var localFolders = Directory.GetDirectories(parent);
-
-            foreach (var folder in localFolders)
-            {
-                await MirrorFolderWeb(folder, page, liteDB);
-            }
-        }
-
-        public MirrorTaskExecutioner MTE { get; set; } = new MirrorTaskExecutioner();
+        public MirrorTaskExecutioner MTE { get; set; }
 
         public async void Logout()
         {
@@ -297,13 +197,21 @@ namespace GDriveMirror
             get { return logoutCommand ??= new RelayCommand(Logout); }
         }
 
+        public ICommand StopExecutionCommand
+        {
+            get
+            {
+                return stopExecutionCommand ??=
+                    new RelayCommand(() => Task.Run(async () => { await MTE.StopExecution(); }).SafeFireAndForget());
+            }
+        }
+
         public ICommand ExecuteCommand
         {
             get
             {
                 return executeCommand ??=
-                    new RelayCommand(() => Task.Run(async () => { await MTE.Execute(); }).SafeFireAndForget(),
-                        () => true);
+                    new RelayCommand(() => Task.Run(async () => { await MTE.Execute(); }).SafeFireAndForget());
             }
         }
 

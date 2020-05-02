@@ -4,12 +4,14 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+using Priority_Queue;
 using PuppeteerSharp;
 
 namespace GDriveMirror
 {
-    public class MirrorTask
+    public class MirrorTask : FastPriorityQueueNode
     {
         protected readonly Page page;
         protected readonly LiteInstance _liteInstance;
@@ -19,9 +21,104 @@ namespace GDriveMirror
             this.page = page;
             _liteInstance = liteInstance;
         }
-        public async virtual Task Proceed()
+        public async virtual Task Proceed(CancellationToken ct = default)
         {
 
+        }
+
+    }
+
+    public class OpenOrCreateAlbumTask:MirrorTask
+    {
+        public string LocalFolder { get; }
+        public MirrorTaskExecutioner MTaskExecutioner { get; }
+
+        public override async Task Proceed(CancellationToken ct = default)
+        {
+            //if localParent contains files
+            var localFiles = Directory.GetFiles(LocalFolder);
+            var filesUp = _liteInstance.GetFilesFromDirectory(LocalFolder);
+            IEnumerable<string> filesToGoUp = null;
+            if (filesUp != null)
+            {
+                filesToGoUp = localFiles.Except(filesUp.Select(f => f.LocalPath));
+            }
+            else
+            {
+                filesToGoUp = localFiles;
+            }
+
+            var filesToGoUpList = filesToGoUp.ToList();
+            if (filesToGoUpList.Any())
+            {
+                var dirUp = _liteInstance.LiteDirectories.FindOne(d => d.LocalPath == LocalFolder);
+                if (dirUp == null)
+                {
+                    if (!page.Url.Equals(Constants.GOOGLE_PHOTOS_URL_SEARCH))
+                    {
+                        await page.GoToAsync(Constants.GOOGLE_PHOTOS_URL_SEARCH, WaitUntilNavigation.Networkidle0);
+                    }
+
+                    var folderName = Path.GetFileName(LocalFolder);
+                    
+                    //try to find or create album named like localParent
+                    await page.Keyboard.PressAsync("/");
+                    await page.Keyboard.TypeAsync(folderName);
+
+                    var searchHintArea = await page.WaitForSelectorAsync(".u3WVdc.jBmls[data-expanded=true]",
+                        Constants.NoTimeoutOptions);
+                    await page.WaitForTimeoutAsync(Constants.LongTimeout);
+                    var createAlbumTask = new CreateAlbumTask(LocalFolder, page, _liteInstance);
+
+                    if (searchHintArea == null)
+                    {
+                        MTaskExecutioner.Enqueue(createAlbumTask);
+                    }
+                    else
+                    {
+                        var searchHints = await searchHintArea.QuerySelectorAllAsync(".MkjOTb.oKubKe.lySfNc");
+
+                        var remoteAlbums = (await page.EvaluateExpressionAsync(
+                            @"let hello = function() {
+                            let elem = document.querySelector('.u3WVdc.jBmls[data-expanded=true]');
+                            let folders = elem.querySelectorAll('.lROwub');
+                            folders = Array.from(folders);
+                            return folders.map(f => f.textContent);
+                            };
+                            hello();")).ToObject<string[]>();
+                        var clickIndex = Array.IndexOf(remoteAlbums, folderName);
+                        if (clickIndex == -1)
+                        {
+                            MTaskExecutioner.Enqueue(createAlbumTask);
+                        }
+                        else
+                        {
+                            //album already exist
+                            await searchHints[clickIndex].ClickAsync();
+                        }
+                    }
+                }
+                else
+                {
+                    await page.GoToAsync(Constants.GOOGLE_PHOTOS_ALBUM_URL + dirUp.Link,
+                        WaitUntilNavigation.Networkidle0);
+                }
+
+                var uploadPhotos = new UploadPhotosTask(filesToGoUpList, LocalFolder, page, _liteInstance);
+                MTaskExecutioner.Enqueue(uploadPhotos);
+            }
+
+            var localFolders = Directory.GetDirectories(LocalFolder);
+            foreach (var folder in localFolders)
+            {
+                var newOpenCreate = new OpenOrCreateAlbumTask(folder, MTaskExecutioner, page, _liteInstance);
+                MTaskExecutioner.Enqueue(newOpenCreate);
+            }
+        }
+        public OpenOrCreateAlbumTask(string localFolder, MirrorTaskExecutioner mTaskExecutioner, Page page, LiteInstance liteInstance) : base(page, liteInstance)
+        {
+            LocalFolder = localFolder;
+            MTaskExecutioner = mTaskExecutioner;
         }
     }
 
@@ -29,7 +126,7 @@ namespace GDriveMirror
     {
         public string LocalFolder { get; }
 
-        public override async Task Proceed()
+        public override async Task Proceed(CancellationToken ct = default)
         {
             await page.GoToAsync(Constants.GOOGLE_PHOTOS_URL);
             var newButton = (await page.EvaluateExpressionAsync(
@@ -38,8 +135,6 @@ namespace GDriveMirror
                 elem.click();
             };
             newButton();"));
-            // var createButton = (await page.QuerySelectorAllAsync(".U26fgb.c7fp5b.FS4hgd.LcqyIb.m6aMje.WNmljc")).First();
-            // await createButton.ClickAsync();
 
             await page.Keyboard.PressAsync("ArrowDown");
            await page.WaitForTimeoutAsync(Constants.LongTimeout);
@@ -66,7 +161,7 @@ namespace GDriveMirror
             get;
         }
 
-        public override async Task Proceed()
+        public override async Task Proceed(CancellationToken ct = default)
         {
             var link = page.Url.Substring(page.Url.LastIndexOf("/", StringComparison.Ordinal) + 1);
             _liteInstance.DirectoryUp(_parent, link);
@@ -98,9 +193,7 @@ namespace GDriveMirror
             await page.WaitForSelectorAsync("div.gsckL", Constants.NoTimeoutOptionsHidden);
 
             _liteInstance.FilesUp(_localFilesPaths,_parent);
-            //await page.WaitForSelectorAsync("DIV.yKzHyd:not([style])", Constants.NoTimeoutOptions);
 
-            //await page.WaitForSelectorAsync("DIV[jsname='qHptJd'][style='display: none;']", Constants.NoTimeoutOptions); div.gsckL
         }
 
         public UploadPhotosTask(IEnumerable<string> localFilesPaths, string parent, Page page, LiteInstance liteInstance) : base(page, liteInstance)

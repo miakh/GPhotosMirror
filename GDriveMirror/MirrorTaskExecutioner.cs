@@ -1,20 +1,20 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Input;
 using ByteSizeLib;
 using GDriveMirror.Annotations;
+using Priority_Queue;
 
 namespace GDriveMirror
 {
     public class MirrorTaskExecutioner:INotifyPropertyChanged
     {
-        private Queue<MirrorTask> MirrorTasks = new Queue<MirrorTask>();
+        private SimplePriorityQueue<MirrorTask, int> MirrorTasks = new SimplePriorityQueue<MirrorTask, int>();
         private bool _isExecuting;
-
-        public MirrorTaskExecutioner()
-        {
-        }
 
         public bool IsExecuting
         {
@@ -23,6 +23,7 @@ namespace GDriveMirror
             {
                 _isExecuting = value;
                 OnPropertyChanged();
+                CommandManager.InvalidateRequerySuggested();
             }
         }
 
@@ -43,19 +44,36 @@ namespace GDriveMirror
         }
         public async Task Execute()
         {
+            cancellationTokenSource = new CancellationTokenSource();
             IsExecuting = true;
-
-            while (MirrorTasks.Count>0)
+            try
             {
-                var task = MirrorTasks.Dequeue();
-                await task.Proceed();
-                if (task is UploadPhotosTask uploadPhotoTask)
+                PreExecute();
+                while (MirrorTasks.Count > 0)
                 {
-                    RemainingBytesUpload -= uploadPhotoTask.FileSize;
-                    RemainingFilesUpload -= 1;
-                    RefreshProgress();
+                    cancellationTokenSource.Token.ThrowIfCancellationRequested();
+                    var task = MirrorTasks.Dequeue();
+                    await task.Proceed();
+                    if (task is UploadPhotosTask uploadPhotoTask)
+                    {
+                        RemainingBytesUpload -= uploadPhotoTask.FileSize;
+                        RemainingFilesUpload -= 1;
+                        RefreshProgress();
+                    }
                 }
             }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                throw e;
+            }
+
+            if (EndingAction != null)
+            {
+                await EndingAction?.Invoke();
+            }
+
+            IsStoppingExecution = false;
             IsExecuting = false;
         }
 
@@ -73,19 +91,45 @@ namespace GDriveMirror
             }
         }
 
+        public bool IsStoppingExecution
+        {
+            get => _isStoppingExecution;
+            set
+            {
+                _isStoppingExecution = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private CancellationTokenSource cancellationTokenSource;
         public async Task StopExecution()
         {
-
+            IsStoppingExecution = true;
+            cancellationTokenSource.Cancel();
         }
 
         private int AllFilesUpload;
         private int RemainingFilesUpload;
         private long AllBytesUpload;
-        private long RemainingBytesUpload; 
+        private long RemainingBytesUpload;
+        private readonly Func<Task> EndingAction;
+        private bool _isStoppingExecution;
+
+        public MirrorTaskExecutioner(Func<Task> endingAction)
+        {
+            this.EndingAction = endingAction;
+        }
 
         public void Enqueue(MirrorTask mt)
         {
-            MirrorTasks.Enqueue(mt);
+            if (mt is OpenOrCreateAlbumTask)
+            {
+                MirrorTasks.Enqueue(mt, 1);
+            }
+            else
+            {
+                MirrorTasks.Enqueue(mt, 0);
+            }
         }
 
         public MirrorTask Dequeue()
