@@ -94,7 +94,11 @@ namespace GDriveMirror
                         else
                         {
                             //album already exist
-                            await searchHints[clickIndex].ClickAsync();
+                            var albumLink = 
+                            await page.EvaluateFunctionAsync("(t)=> t.getAttribute('data-album-media-key')",searchHints[clickIndex]);
+                            var stringLink =  albumLink.ToObject<string>();
+                            await page.GoToAsync(Constants.GOOGLE_PHOTOS_ALBUM_URL + stringLink,
+                                WaitUntilNavigation.Networkidle0);
                         }
                     }
                 }
@@ -143,7 +147,9 @@ namespace GDriveMirror
             await page.WaitForNavigationAsync(new NavigationOptions() {WaitUntil = new []{WaitUntilNavigation.Networkidle0 } });
             var localFolderName = Path.GetFileName(LocalFolder);
             await page.Keyboard.TypeAsync(localFolderName);
-            
+            await page.Keyboard.PressAsync("Enter");
+            await page.WaitForSelectorAsync($"TEXTAREA.ajQY2.v3oaBb[initial-data-value={localFolderName}]");
+            //wait or find event which will halt the DOM saving
         }
         public CreateAlbumTask( string localFolder, Page page, LiteInstance liteInstance) : base(page, liteInstance)
         {

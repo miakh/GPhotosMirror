@@ -120,14 +120,14 @@ namespace GDriveMirror
             var liteDB = new LiteInstance(UserName);
             liteDB.Initialize();
 
-            MTE = new MirrorTaskExecutioner(async () =>
+            MTE.EndingAction = async () =>
             {
                 await page.CloseAsync();
                 await browser.CloseAsync();
                 await page.DisposeAsync();
                 await browser.DisposeAsync();
                 liteDB.Dispose();
-            });
+            };
             var rootOpenCreate = new OpenOrCreateAlbumTask(LocalRoot, MTE, page, liteDB);
             MTE.Enqueue(rootOpenCreate);
         }
@@ -143,7 +143,7 @@ namespace GDriveMirror
             }
         }
 
-        public MirrorTaskExecutioner MTE { get; set; }
+        public MirrorTaskExecutioner MTE { get; set; } = new MirrorTaskExecutioner();
 
         public async void Logout()
         {

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,6 +17,8 @@ namespace GDriveMirror
         private SimplePriorityQueue<MirrorTask, int> MirrorTasks = new SimplePriorityQueue<MirrorTask, int>();
         private bool _isExecuting;
 
+        public bool IsExecuteButtonShowing => !IsExecuting || IsStoppingExecution;
+        public bool IsExecuteButtonEnabled => this.MirrorTasks.Any() && !IsStoppingExecution;
         public bool IsExecuting
         {
             get => _isExecuting;
@@ -23,7 +26,7 @@ namespace GDriveMirror
             {
                 _isExecuting = value;
                 OnPropertyChanged();
-                CommandManager.InvalidateRequerySuggested();
+                OnPropertyChanged(nameof(IsExecuteButtonShowing));
             }
         }
 
@@ -73,8 +76,8 @@ namespace GDriveMirror
                 await EndingAction?.Invoke();
             }
 
-            IsStoppingExecution = false;
             IsExecuting = false;
+            IsStoppingExecution = false;
         }
 
         private void RefreshProgress()
@@ -97,7 +100,8 @@ namespace GDriveMirror
             set
             {
                 _isStoppingExecution = value;
-                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsExecuteButtonEnabled));
+                OnPropertyChanged(nameof(IsExecuteButtonShowing));
             }
         }
 
@@ -112,12 +116,11 @@ namespace GDriveMirror
         private int RemainingFilesUpload;
         private long AllBytesUpload;
         private long RemainingBytesUpload;
-        private readonly Func<Task> EndingAction;
+        public Func<Task> EndingAction;
         private bool _isStoppingExecution;
 
-        public MirrorTaskExecutioner(Func<Task> endingAction)
+        public MirrorTaskExecutioner()
         {
-            this.EndingAction = endingAction;
         }
 
         public void Enqueue(MirrorTask mt)
@@ -130,6 +133,7 @@ namespace GDriveMirror
             {
                 MirrorTasks.Enqueue(mt, 0);
             }
+            OnPropertyChanged(nameof(IsExecuteButtonEnabled));
         }
 
         public MirrorTask Dequeue()

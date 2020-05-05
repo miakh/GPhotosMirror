@@ -9,6 +9,7 @@
 
         <converters:InvertedBooleanToVisibility x:Key="InvertedBooleanToVisibility" />
         <converters:InvertedBoolean x:Key="InvertedBoolean" />
+        <converters:BooleanToVisibility x:Key="BooleanToVisibility" />
 
     </Application.Resources>
 </Application>
