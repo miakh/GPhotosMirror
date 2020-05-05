@@ -36,7 +36,7 @@ namespace GDriveMirror
         public override async Task Proceed(CancellationToken ct = default)
         {
             //if localParent contains files
-            var localFiles = Directory.GetFiles(LocalFolder);
+            var localFiles = Directory.GetFiles(LocalFolder).FilterPhotosVideos();
             var filesUp = _liteInstance.GetFilesFromDirectory(LocalFolder);
             IEnumerable<string> filesToGoUp = null;
             if (filesUp != null)
@@ -195,11 +195,20 @@ namespace GDriveMirror
             await page.QuerySelectorAsync("input[type=file]");
             var fileInput = await page.QuerySelectorAsync("input[type=file]");
             await fileInput.UploadFileAsync(_localFilesPaths.ToArray());
-            await page.WaitForSelectorAsync("div.gsckL", Constants.NoTimeoutOptions);
-            await page.WaitForSelectorAsync("div.gsckL", Constants.NoTimeoutOptionsHidden);
 
-            _liteInstance.FilesUp(_localFilesPaths,_parent);
-
+            //upload box showed
+            await page.WaitForSelectorAsync(".aHPraf.zPNfib", Constants.NoTimeoutOptions);
+            //upload box hidden
+            await page.WaitForSelectorAsync(".aHPraf.zPNfib", Constants.NoTimeoutOptionsHidden);
+            var errorBox = page.QuerySelectorAsync(".WjkDEe.zPNfib");
+            if (errorBox == null)
+            {
+                _liteInstance.FilesUp(_localFilesPaths, _parent);
+            }
+            else
+            {
+                //some error
+            }
         }
 
         public UploadPhotosTask(IEnumerable<string> localFilesPaths, string parent, Page page, LiteInstance liteInstance) : base(page, liteInstance)

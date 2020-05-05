@@ -87,7 +87,7 @@ namespace GDriveMirror
                 UserDataDir = UserDataDirPath,
                 ExecutablePath = executableLocalPath,
                 IgnoredDefaultArgs = new[] {"--disable-extensions"},
-                DefaultViewport = new ViewPortOptions() {Height = 900, Width = 1000}
+                DefaultViewport = new ViewPortOptions() {Height = 1000, Width = 1000}
             });
 
             var page = await browser.NewPageAsync();
