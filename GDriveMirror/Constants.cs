@@ -10,7 +10,7 @@ namespace GDriveMirror
 
         public static string[] AllowedExtensions = new[]
         {
-            ".3fr", ".3gp", ".arw", ".avi", ".cr2", ".crw", ".dc2", ".dcr", ".dng", ".erf", ".heic", ".jpeg", ".k25",
+            ".3fr", ".3gp", ".arw", ".avi", ".cr2", ".crw", ".dc2", ".dcr", ".dng", ".erf", ".heic", ".jpeg",".jpg", ".k25",
             ".kdc", ".mdc", ".mef", ".mkv", ".mos", ".mov", ".mrw", ".mts", ".nef", ".nrw", ".orf", ".pef", ".qtk",
             ".raf", ".raw", ".rdc", ".rw2", ".sr2", ".srf", ".x3f"
         };
@@ -27,6 +27,6 @@ namespace GDriveMirror
         public const int ShortTimeout = 250;
         public const int LongTimeout = 1000;
         public static WaitForSelectorOptions NoTimeoutOptions = new WaitForSelectorOptions() { Timeout = 0 };
-        public static WaitForSelectorOptions NoTimeoutOptionsHidden = new WaitForSelectorOptions() { Timeout = 0""",""" Hidden = true };
+        public static WaitForSelectorOptions NoTimeoutOptionsHidden = new WaitForSelectorOptions() { Timeout = 0, Hidden = true };
     }
 }

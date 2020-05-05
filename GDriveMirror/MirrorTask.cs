@@ -51,7 +51,19 @@ namespace GDriveMirror
             var filesToGoUpList = filesToGoUp.ToList();
             if (filesToGoUpList.Any())
             {
+                var createAlbumTask = new CreateAlbumTask(LocalFolder, page, _liteInstance);
                 var dirUp = _liteInstance.LiteDirectories.FindOne(d => d.LocalPath == LocalFolder);
+                
+                if(dirUp!=null)
+                {
+                    var response = await page.GoToAsync(Constants.GOOGLE_PHOTOS_ALBUM_URL + dirUp.Link,
+                        WaitUntilNavigation.Networkidle0);
+                    if (!response.Ok)
+                    {
+                        dirUp.Link = null;
+                        _liteInstance.LiteDirectories.Upsert(dirUp);
+                    }
+                }
                 if (dirUp == null)
                 {
                     if (!page.Url.Equals(Constants.GOOGLE_PHOTOS_URL_SEARCH))
@@ -68,7 +80,6 @@ namespace GDriveMirror
                     var searchHintArea = await page.WaitForSelectorAsync(".u3WVdc.jBmls[data-expanded=true]",
                         Constants.NoTimeoutOptions);
                     await page.WaitForTimeoutAsync(Constants.LongTimeout);
-                    var createAlbumTask = new CreateAlbumTask(LocalFolder, page, _liteInstance);
 
                     if (searchHintArea == null)
                     {
@@ -97,16 +108,13 @@ namespace GDriveMirror
                             var albumLink = 
                             await page.EvaluateFunctionAsync("(t)=> t.getAttribute('data-album-media-key')",searchHints[clickIndex]);
                             var stringLink =  albumLink.ToObject<string>();
-                            await page.GoToAsync(Constants.GOOGLE_PHOTOS_ALBUM_URL + stringLink,
+                            var response = await page.GoToAsync(Constants.GOOGLE_PHOTOS_ALBUM_URL + stringLink,
                                 WaitUntilNavigation.Networkidle0);
+                            
                         }
                     }
                 }
-                else
-                {
-                    await page.GoToAsync(Constants.GOOGLE_PHOTOS_ALBUM_URL + dirUp.Link,
-                        WaitUntilNavigation.Networkidle0);
-                }
+                
 
                 var uploadPhotos = new UploadPhotosTask(filesToGoUpList, LocalFolder, page, _liteInstance);
                 MTaskExecutioner.Enqueue(uploadPhotos);
@@ -148,8 +156,7 @@ namespace GDriveMirror
             var localFolderName = Path.GetFileName(LocalFolder);
             await page.Keyboard.TypeAsync(localFolderName);
             await page.Keyboard.PressAsync("Enter");
-            await page.WaitForSelectorAsync($"TEXTAREA.ajQY2.v3oaBb[initial-data-value={localFolderName}]");
-            //wait or find event which will halt the DOM saving
+            await page.WaitForSelectorAsync($"TEXTAREA.ajQY2.v3oaBb[initial-data-value=\"{localFolderName}\"]");
         }
         public CreateAlbumTask( string localFolder, Page page, LiteInstance liteInstance) : base(page, liteInstance)
         {
@@ -200,7 +207,7 @@ namespace GDriveMirror
             await page.WaitForSelectorAsync(".aHPraf.zPNfib", Constants.NoTimeoutOptions);
             //upload box hidden
             await page.WaitForSelectorAsync(".aHPraf.zPNfib", Constants.NoTimeoutOptionsHidden);
-            var errorBox = page.QuerySelectorAsync(".WjkDEe.zPNfib");
+            var errorBox = await page.QuerySelectorAsync(".WjkDEe.zPNfib");
             if (errorBox == null)
             {
                 _liteInstance.FilesUp(_localFilesPaths, _parent);
