@@ -64,7 +64,7 @@ namespace GDriveMirror
                         _liteInstance.LiteDirectories.Upsert(dirUp);
                     }
                 }
-                if (dirUp == null)
+                if (dirUp?.Link == null)
                 {
                     if (!page.Url.Equals(Constants.GOOGLE_PHOTOS_URL_SEARCH))
                     {
@@ -75,6 +75,9 @@ namespace GDriveMirror
                     
                     //try to find or create album named like localParent
                     await page.Keyboard.PressAsync("/");
+                    var searchFocused =
+                        await page.WaitForExpressionAsync(
+                            "document.activeElement==document.querySelector('INPUT.Ax4B8.ZAGvjd')");
                     await page.Keyboard.TypeAsync(folderName);
 
                     var searchHintArea = await page.WaitForSelectorAsync(".u3WVdc.jBmls[data-expanded=true]",
@@ -147,11 +150,10 @@ namespace GDriveMirror
                 elem.click();
             };
             newButton();"));
-
-            await page.Keyboard.PressAsync("ArrowDown");
-           await page.WaitForTimeoutAsync(Constants.LongTimeout);
-
-            await page.Keyboard.PressAsync("Enter");
+            //new item menu
+            //await page.WaitForSelectorAsync("DIV.JPdR6b.e5Emjc.s2VtY.qjTEB");
+            var newAlbum = await page.WaitForSelectorAsync("DIV.JPdR6b.e5Emjc.s2VtY.qjTEB SPAN.z80M1.o7Osof.mDKoOe");
+            await newAlbum.ClickAsync();
             await page.WaitForNavigationAsync(new NavigationOptions() {WaitUntil = new []{WaitUntilNavigation.Networkidle0 } });
 
             await page.WaitForSelectorAsync("TEXTAREA.ajQY2.v3oaBb");
