@@ -153,6 +153,13 @@ namespace GDriveMirror
 
             await page.Keyboard.PressAsync("Enter");
             await page.WaitForNavigationAsync(new NavigationOptions() {WaitUntil = new []{WaitUntilNavigation.Networkidle0 } });
+
+            await page.WaitForSelectorAsync("TEXTAREA.ajQY2.v3oaBb");
+            var textArea = await page.QuerySelectorAsync("TEXTAREA.ajQY2.v3oaBb");
+            //force focus
+            await textArea.FocusAsync();
+            await page.WaitForTimeoutAsync(Constants.ShortTimeout);
+
             var localFolderName = Path.GetFileName(LocalFolder);
             await page.Keyboard.TypeAsync(localFolderName);
             await page.Keyboard.PressAsync("Enter");

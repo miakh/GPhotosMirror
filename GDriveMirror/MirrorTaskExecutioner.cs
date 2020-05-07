@@ -18,7 +18,7 @@ namespace GDriveMirror
         private bool _isExecuting;
 
         public bool IsExecuteButtonShowing => !IsExecuting || IsStoppingExecution;
-        public bool IsExecuteButtonEnabled => this.MirrorTasks.Any() && !IsStoppingExecution;
+        public bool IsExecuteButtonEnabled => this.StartAction!=null && !IsStoppingExecution;
         public bool IsExecuting
         {
             get => _isExecuting;
@@ -47,8 +47,13 @@ namespace GDriveMirror
         }
         public async Task Execute()
         {
-            cancellationTokenSource = new CancellationTokenSource();
+
             IsExecuting = true;
+            cancellationTokenSource = new CancellationTokenSource();
+            if (StartAction != null)
+            {
+                await StartAction?.Invoke();
+            }
             try
             {
                 PreExecute();
@@ -65,19 +70,26 @@ namespace GDriveMirror
                     }
                 }
             }
+
+            catch (PuppeteerSharp.PuppeteerException e)
+            {
+                if (e is PuppeteerSharp.TargetClosedException || e is PuppeteerSharp.NavigationException
+                                                              || e is PuppeteerSharp.ChromiumProcessException)
+                {
+                    //stop action
+                    return;
+                }
+
+                Console.WriteLine(e);
+                throw e;
+            }
             catch (Exception e)
             {
                 Console.WriteLine(e);
                 throw e;
             }
 
-            if (EndingAction != null)
-            {
-                await EndingAction?.Invoke();
-            }
-
-            IsExecuting = false;
-            IsStoppingExecution = false;
+            await StopExecution();
         }
 
         private void RefreshProgress()
@@ -105,11 +117,29 @@ namespace GDriveMirror
             }
         }
 
+        public Func<Task> StartAction
+        {
+            get => _startAction;
+            set
+            {
+                _startAction = value;
+                OnPropertyChanged(nameof(IsExecuteButtonEnabled));
+
+            }
+        }
+
         private CancellationTokenSource cancellationTokenSource;
         public async Task StopExecution()
         {
             IsStoppingExecution = true;
+            if (EndingAction != null)
+            {
+                await EndingAction?.Invoke();
+            }
+            this.MirrorTasks.Clear();
             cancellationTokenSource.Cancel();
+            IsStoppingExecution = false;
+            IsExecuting = false;
         }
 
         private int AllFilesUpload;
@@ -118,10 +148,7 @@ namespace GDriveMirror
         private long RemainingBytesUpload;
         public Func<Task> EndingAction;
         private bool _isStoppingExecution;
-
-        public MirrorTaskExecutioner()
-        {
-        }
+        private Func<Task> _startAction;
 
         public void Enqueue(MirrorTask mt)
         {
@@ -133,7 +160,6 @@ namespace GDriveMirror
             {
                 MirrorTasks.Enqueue(mt, 0);
             }
-            OnPropertyChanged(nameof(IsExecuteButtonEnabled));
         }
 
         public MirrorTask Dequeue()

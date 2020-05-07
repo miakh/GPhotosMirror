@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -67,48 +66,25 @@ namespace GDriveMirror
                 ChangePath();
             }
 
-
-            var executable = "Google\\Chrome\\Application\\chrome.exe";
-            var programfiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
-            var executableLocalPath = Path.Combine(programfiles, executable);
-            if (!System.IO.File.Exists(executableLocalPath))
-            {
-                await new BrowserFetcher().DownloadAsync(BrowserFetcher.DefaultRevision);
-                executableLocalPath = null;
-            }
-
-
-            //close your browser if exception
-            //or start bundled
-
-            var browser = await Puppeteer.LaunchAsync(new LaunchOptions
-            {
-                Headless = false,
-                UserDataDir = UserDataDirPath,
-                ExecutablePath = executableLocalPath,
-                IgnoredDefaultArgs = new[] {"--disable-extensions"},
-                DefaultViewport = new ViewPortOptions() {Height = 1000, Width = 1000}
-            });
-
-            var page = await browser.NewPageAsync();
-
+            var browser = new BrowserInstance(UserDataDirPath);
+            await browser.LaunchIfClosed();
             //using current Chrome
             //await using var browser = await Puppeteer.ConnectAsync(new ConnectOptions(){ BrowserURL = "http://127.0.0.1:9222", DefaultViewport = new ViewPortOptions(){Height = 800, Width = 1000}});
             //await using var page = await browser.NewPageAsync();
 
-            await page.GoToAsync(Constants.GOOGLE_PHOTOS_URL, WaitUntilNavigation.Networkidle0);
+            await browser.CurrentPage.GoToAsync(Constants.GOOGLE_PHOTOS_URL, WaitUntilNavigation.Networkidle0);
             while (true)
             {
-                if (page.Url.Contains(Constants.GOOGLE_PHOTOS_URL))
+                if (browser.CurrentPage.Url.Contains(Constants.GOOGLE_PHOTOS_URL))
                 {
                     break;
                 }
 
                 //wait for login
-                await page.WaitForNavigationAsync();
+                await browser.CurrentPage.WaitForNavigationAsync();
             }
 
-            UserName = (await page.EvaluateExpressionAsync(
+            UserName = (await browser.CurrentPage.EvaluateExpressionAsync(
                 @"let username = function() {
                         let elem = document.querySelectorAll('.gb_pe div');
                         let userMail = elem[elem.length-1].innerText;
@@ -120,17 +96,22 @@ namespace GDriveMirror
             var liteDB = new LiteInstance(UserName);
             liteDB.Initialize();
 
+            MTE.StartAction = async () =>
+            {
+                await browser.LaunchIfClosed();
+                var page = browser.CurrentPage;
+                var rootOpenCreate = new OpenOrCreateAlbumTask(LocalRoot, MTE, page, liteDB);
+                MTE.Enqueue(rootOpenCreate);
+
+            };
             MTE.EndingAction = async () =>
             {
-                await page.CloseAsync();
-                await browser.CloseAsync();
-                await page.DisposeAsync();
-                await browser.DisposeAsync();
-                liteDB.Dispose();
+                await browser.Close();
             };
-            var rootOpenCreate = new OpenOrCreateAlbumTask(LocalRoot, MTE, page, liteDB);
-            MTE.Enqueue(rootOpenCreate);
+
         }
+
+        
 
         private string UserDataDirPath
         {
