@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace GDriveMirror {
+namespace GPhotosMirror {
     
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]

@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace GDriveMirror
+namespace GPhotosMirror
 {
     public class LiteDirectory
     {

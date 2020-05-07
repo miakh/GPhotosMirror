@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 
-namespace GDriveMirror.Converters
+namespace GPhotosMirror.Converters
 {
     public class NullToCollapsed : IValueConverter
     {

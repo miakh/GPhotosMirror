@@ -1,6 +1,6 @@
 ﻿using PuppeteerSharp;
 
-namespace GDriveMirror
+namespace GPhotosMirror
 {
     internal class Constants
     {

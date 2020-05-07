@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using LiteDB;
 
-namespace GDriveMirror
+namespace GPhotosMirror
 {
     public class LiteInstance:IDisposable
     {

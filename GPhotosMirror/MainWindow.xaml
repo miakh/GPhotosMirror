@@ -1,13 +1,12 @@
-﻿<Window x:Class="GDriveMirror.MainWindow"
+﻿<Window x:Class="GPhotosMirror.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:GoogleDriveUploader"
-        xmlns:gDriveMirror="clr-namespace:GDriveMirror"
+        xmlns:gPhotosMirror="clr-namespace:GPhotosMirror"
         mc:Ignorable="d"
-        Title="Google Drive Uploader" Height="450" Width="800"
-        d:DataContext="{d:DesignInstance gDriveMirror:MainViewModel}"
+        Title="GPhotosMirror" Height="450" Width="800"
+        d:DataContext="{d:DesignInstance gPhotosMirror:MainViewModel}"
         >
     <Grid>
         <Button Content="Change Path" HorizontalAlignment="Left" Margin="10,46,0,0" VerticalAlignment="Top" Command="{Binding ChangePathCommand}"/>

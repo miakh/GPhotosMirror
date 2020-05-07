@@ -2,7 +2,7 @@
 using System.IO;
 using System.Linq;
 
-namespace GDriveMirror
+namespace GPhotosMirror
 {
     public static class Extensions
     {

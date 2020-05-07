@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace GDriveMirror
+namespace GPhotosMirror
 {
     public class LiteFile
     {

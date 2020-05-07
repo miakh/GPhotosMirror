@@ -1,23 +1,14 @@
 ﻿using System;
-using System.Windows;
 using System.Windows.Data;
 
-namespace GDriveMirror.Converters
+namespace GPhotosMirror.Converters
 {
-    class InvertedBooleanToVisibility : IValueConverter
+    class InvertedBoolean : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter,
                           System.Globalization.CultureInfo culture)
         {
-            bool sender = (bool)value;
-            if (!sender)
-            {
-                return Visibility.Visible;
-            }
-            else
-            {
-                return Visibility.Collapsed;
-            }
+            return ! (bool)value;            
         }
 
 

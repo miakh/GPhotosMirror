@@ -1,21 +1,16 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
-using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
 using System.Windows.Input;
 using AsyncAwaitBestPractices;
 using GalaSoft.MvvmLight.Command;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using PuppeteerSharp;
 
-
-namespace GDriveMirror
+namespace GPhotosMirror
 {
     public class MainViewModel : INotifyPropertyChanged
     {
