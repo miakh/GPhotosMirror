@@ -153,7 +153,8 @@ namespace GDriveMirror
             //new item menu
             //await page.WaitForSelectorAsync("DIV.JPdR6b.e5Emjc.s2VtY.qjTEB");
             var newAlbum = await page.WaitForSelectorAsync("DIV.JPdR6b.e5Emjc.s2VtY.qjTEB SPAN.z80M1.o7Osof.mDKoOe");
-            await newAlbum.ClickAsync();
+            //await page.WaitForTimeoutAsync(Constants.ShortTimeout);
+            await newAlbum.PressAsync("Enter");
             await page.WaitForNavigationAsync(new NavigationOptions() {WaitUntil = new []{WaitUntilNavigation.Networkidle0 } });
 
             await page.WaitForSelectorAsync("TEXTAREA.ajQY2.v3oaBb");
