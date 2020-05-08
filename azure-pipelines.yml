@@ -32,10 +32,12 @@ steps:
     gitHubConnection: 'github.com_miakh'
     repositoryName: 'miakh/GPhotosMirror'
     action: 'create'
-    target: '$(Build.SourceVersion)'
+    target: '$(Build.BinariesDirectory)'
     tagSource: 'gitTag'
     releaseNotesSource: 'inline'
     isPreRelease: true
     changeLogCompareToRelease: 'lastFullRelease'
     changeLogType: 'commitBased'
+
+
 
