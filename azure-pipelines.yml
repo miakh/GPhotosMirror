@@ -25,6 +25,7 @@ steps:
   inputs:
     command: 'publish'
     publishWebProjects: false
+    projects: '**/*.csproj'
 
 - task: GitHubRelease@1
   inputs:
