@@ -34,13 +34,15 @@ steps:
     gitHubConnection: 'github.com_miakh'
     repositoryName: 'miakh/GPhotosMirror'
     action: 'create'
-    target: '$(Build.ArtifactStagingDirectory)'
+    target: '$(Build.SourceVersion)'
     assets: '$(Build.ArtifactStagingDirectory)/*.zip'
     tagSource: 'gitTag'
     releaseNotesSource: 'inline'
     isPreRelease: true
     changeLogCompareToRelease: 'lastFullRelease'
     changeLogType: 'commitBased'
+
+
 
 
 
