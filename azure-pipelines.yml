@@ -26,13 +26,16 @@ steps:
     command: 'publish'
     publishWebProjects: false
     projects: '**/*.csproj'
+    arguments: '--output $(Build.ArtifactStagingDirectory)'
+
 
 - task: GitHubRelease@1
   inputs:
     gitHubConnection: 'github.com_miakh'
     repositoryName: 'miakh/GPhotosMirror'
     action: 'create'
-    target: '$(Build.BinariesDirectory)'
+    target: '$(Build.ArtifactStagingDirectory)'
+    assets: '$(Build.ArtifactStagingDirectory)/*.zip'
     tagSource: 'gitTag'
     releaseNotesSource: 'inline'
     isPreRelease: true
