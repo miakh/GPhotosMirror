@@ -205,7 +205,7 @@ namespace GPhotosMirror
             //await addPhotoButton.ClickAsync();
             await page.WaitForSelectorAsync(".VfPpkd-LgbsSe.ksBjEc.lKxP2d");
             var filesFromPC = await page.QuerySelectorAsync(".VfPpkd-LgbsSe.ksBjEc.lKxP2d");
-            await filesFromPC.ClickAsync();
+            await filesFromPC.PressAsync("Enter");
             await page.WaitForSelectorAsync("input[type=file]");
             await page.QuerySelectorAsync("input[type=file]");
             var fileInput = await page.QuerySelectorAsync("input[type=file]");
