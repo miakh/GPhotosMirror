@@ -37,7 +37,7 @@ steps:
     target: '$(Build.SourceVersion)'
     assets: '$(Build.ArtifactStagingDirectory)/*.zip'
     tagSource: 'gitTag'
-    title: 'v$(MAJOR).$(MINOR).$(PATCH)'
+    title: 'v$(Build.BuildNumber)'
     releaseNotesSource: 'inline'
     isPreRelease: false
     changeLogCompareToRelease: 'lastFullRelease'
