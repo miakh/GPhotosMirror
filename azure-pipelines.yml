@@ -3,7 +3,12 @@
 # https://docs.microsoft.com/azure/devops/pipelines/languages/dotnet-core
 
 trigger:
-- master
+  branches:
+    include:
+      - master
+  tags:
+    include:
+      - v*
 
 pool:
   vmImage: 'windows-latest'
@@ -14,13 +19,6 @@ variables:
   buildConfiguration: 'Release'
 
 steps:
-
-- script: |
-    export githubTag=$(git describe --abbrev=0 --tags)
-    echo "##vso[task.setvariable variable=githubTag]$githubTag"
-  condition: startsWith(variables['Build.SourceBranch'], 'refs/tags/v')
-  displayName: Set tag to env variable githubTag
-  failOnStderr: true
 - task: NuGetToolInstaller@1
 
 - task: NuGetCommand@2
@@ -44,16 +42,8 @@ steps:
     target: '$(Build.SourceVersion)'
     assets: '$(Build.ArtifactStagingDirectory)/*.zip'
     tagSource: 'gitTag'
-    title: '$(githubTag)'
+    title: 'v$(Build.BuildNumber)'
     releaseNotesSource: 'inline'
     isPreRelease: false
     changeLogCompareToRelease: 'lastFullRelease'
     changeLogType: 'commitBased'
-
-
-
-
-
-
-
-
