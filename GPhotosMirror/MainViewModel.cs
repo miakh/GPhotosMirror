@@ -1,13 +1,17 @@
 ﻿using System;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Input;
 using AsyncAwaitBestPractices;
 using GalaSoft.MvvmLight.Command;
 using Microsoft.WindowsAPICodePack.Dialogs;
+using Onova;
+using Onova.Services;
 using PuppeteerSharp;
 
 namespace GPhotosMirror
@@ -56,6 +60,9 @@ namespace GPhotosMirror
 
         public async void Initialize()
         {
+
+            CheckAndUpdate().SafeFireAndForget();
+
             if (string.IsNullOrEmpty(UserSettings.Default.RootPath))
             {
                 ChangePath();
@@ -106,7 +113,38 @@ namespace GPhotosMirror
 
         }
 
-        
+        private async Task CheckAndUpdate()
+        {
+            // Check for updates
+            var manager = new UpdateManager(
+                new GithubPackageResolver("miakh", "GPhotosMirror", "GPhotosMirror*.zip"),
+                new ZipPackageExtractor());
+
+
+            var result = await manager.CheckForUpdatesAsync();
+            if (result.CanUpdate)
+            {
+                if (MessageBox.Show($"Found new update ({result.LastVersion}). Do you want to update?",
+                    "Confirmation", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+                {
+                    var progress = new ProgressDialog();
+                    progress.Title = "Downloading update...";
+                    progress.Show();
+                    await manager.PrepareUpdateAsync(result.LastVersion, new Progress<double>(
+                        async (p) => { progress.Progress = p * 100; })
+                    );
+                    progress.Hide();
+
+                    //progressDialog.Text = "Installing update...";
+
+                    manager.LaunchUpdater(result.LastVersion);
+
+                    // Terminate the running application so that the updater can overwrite files
+                    Environment.Exit(0);
+                }
+            }
+        }
+
 
         private string UserDataDirPath
         {
