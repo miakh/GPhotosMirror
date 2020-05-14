@@ -1,4 +1,5 @@
 ﻿using System.Windows;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace GPhotosMirror
 {
@@ -10,7 +11,7 @@ namespace GPhotosMirror
         public MainWindow()
         {
             InitializeComponent();
-            this.DataContext = new MainViewModel();
+            this.DataContext = (App.Current as App).Container.GetService<MainViewModel>();
         }
     }
 }

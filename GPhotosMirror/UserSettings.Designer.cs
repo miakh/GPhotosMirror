@@ -34,5 +34,17 @@ namespace GPhotosMirror {
                 this["RootPath"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool WasSignedIn {
+            get {
+                return ((bool)(this["WasSignedIn"]));
+            }
+            set {
+                this["WasSignedIn"] = value;
+            }
+        }
     }
 }

@@ -18,7 +18,7 @@ namespace GPhotosMirror
 {
     public class MainViewModel : INotifyPropertyChanged
     {
-        private string _localRoot = UserSettings.Default.RootPath;
+        private string _localRoot;
         private ICommand changePath;
         private RelayCommand logoutCommand;
         private RelayCommand executeCommand;
@@ -57,60 +57,28 @@ namespace GPhotosMirror
 
         private string userName;
         private RelayCommand stopExecutionCommand;
+        private bool _isSignedIn;
+        private RelayCommand signInCommand;
+        private bool _isSigningIn;
 
         public async void Initialize()
         {
-
             CheckAndUpdate().SafeFireAndForget();
 
-            if (string.IsNullOrEmpty(UserSettings.Default.RootPath))
+            LocalRoot = UserSettings.Default.RootPath;
+            // Sign in just to make sure it is possible
+            if (UserSettings.Default.WasSignedIn)
             {
-                ChangePath();
+                SignIn().SafeFireAndForget();
             }
 
-            var browser = new BrowserInstance(UserDataDirPath);
-            await browser.LaunchIfClosed();
-            //using current Chrome
-            //await using var browser = await Puppeteer.ConnectAsync(new ConnectOptions(){ BrowserURL = "http://127.0.0.1:9222", DefaultViewport = new ViewPortOptions(){Height = 800, Width = 1000}});
-            //await using var page = await browser.NewPageAsync();
-
-            await browser.CurrentPage.GoToAsync(Constants.GOOGLE_PHOTOS_URL, WaitUntilNavigation.Networkidle0);
-            while (true)
+            MTE.PropertyChanged += (sender, args) =>
             {
-                if (browser.CurrentPage.Url.Contains(Constants.GOOGLE_PHOTOS_URL))
+                if (args.PropertyName == nameof(MTE.IsExecuteButtonEnabled))
                 {
-                    break;
+                    NotifyPropertyChanged(nameof(CanUpload));
                 }
-
-                //wait for login
-                await browser.CurrentPage.WaitForNavigationAsync();
-            }
-
-            UserName = (await browser.CurrentPage.EvaluateExpressionAsync(
-                @"let username = function() {
-                        let elem = document.querySelectorAll('.gb_pe div');
-                        let userMail = elem[elem.length-1].innerText;
-                        return userMail;
-                        };
-                        username();")).ToObject<string>();
-
-
-            var liteDB = new LiteInstance(UserName);
-            liteDB.Initialize();
-
-            MTE.StartAction = async () =>
-            {
-                await browser.LaunchIfClosed();
-                var page = browser.CurrentPage;
-                var rootOpenCreate = new OpenOrCreateAlbumTask(LocalRoot, MTE, page, liteDB);
-                MTE.Enqueue(rootOpenCreate);
-
             };
-            MTE.EndingAction = async () =>
-            {
-                await browser.Close();
-            };
-
         }
 
         private async Task CheckAndUpdate()
@@ -124,14 +92,14 @@ namespace GPhotosMirror
             var result = await manager.CheckForUpdatesAsync();
             if (result.CanUpdate)
             {
-                if (MessageBox.Show($"Found new update ({result.LastVersion}). Do you want to update?",
+                if (MessageBox.Show($"New version is available ({result.LastVersion}). Do you want to update?",
                     "Confirmation", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
                 {
                     var progress = new ProgressDialog();
                     progress.Title = "Downloading update...";
                     progress.Show();
                     await manager.PrepareUpdateAsync(result.LastVersion, new Progress<double>(
-                        async (p) => { progress.Progress = p * 100; })
+                         p => progress.Progress = p * 100)
                     );
                     progress.Hide();
 
@@ -159,9 +127,11 @@ namespace GPhotosMirror
 
         public MirrorTaskExecutioner MTE { get; set; } = new MirrorTaskExecutioner();
 
-        public async void Logout()
+        public void Logout()
         {
+            // Deletes cached users cookies
             Directory.Delete(UserDataDirPath, true);
+            IsSignedIn = false;
             NotifyPropertyChanged(nameof(UserName));
         }
 
@@ -188,6 +158,7 @@ namespace GPhotosMirror
             UserSettings.Default.Save();
             LocalRoot = synchronizePath;
             EnsureDirectoryExist(LocalRoot);
+            NotifyPropertyChanged(nameof(CanUpload));
         }
 
         public ICommand ChangePathCommand
@@ -202,7 +173,7 @@ namespace GPhotosMirror
                 userName = value;
                 NotifyPropertyChanged();
             }
-            get => !string.IsNullOrEmpty(userName) ? userName : "Not logged in";
+            get => !string.IsNullOrEmpty(userName) ? userName : "";
         }
 
 
@@ -228,6 +199,108 @@ namespace GPhotosMirror
                     new RelayCommand(() => Task.Run(async () => { await MTE.Execute(); }).SafeFireAndForget());
             }
         }
+
+        public bool IsSignedIn
+        {
+            get => _isSignedIn;
+            set
+            {
+                _isSignedIn = value;
+                if (UserSettings.Default.WasSignedIn != value)
+                {
+                    UserSettings.Default.WasSignedIn = value;
+                    UserSettings.Default.Save();
+                }
+                NotifyPropertyChanged();
+                NotifyPropertyChanged(nameof(CanUpload));
+            }
+        }
+
+        public ICommand SignInCommand
+        {
+            get
+            {
+                return signInCommand ??=
+                    new RelayCommand(() => Task.Run(async () => { await SignIn(); }).SafeFireAndForget());
+            }
+        }
+
+        public bool IsSigningIn
+        {
+            get => _isSigningIn;
+            set
+            {
+                _isSigningIn = value; 
+                NotifyPropertyChanged();
+            }
+        }
+
+        public bool CanUpload
+        {
+            get { return !string.IsNullOrEmpty(UserSettings.Default.RootPath) && MTE.IsExecuteButtonEnabled; }
+        }
+
+        private async Task SignIn()
+        {
+            IsSigningIn = true;
+            try
+            {
+                Browser = new BrowserInstance(UserDataDirPath);
+                await Browser.LaunchIfClosed();
+                //using current Chrome
+                //await using var Browser = await Puppeteer.ConnectAsync(new ConnectOptions(){ BrowserURL = "http://127.0.0.1:9222", DefaultViewport = new ViewPortOptions(){Height = 800, Width = 1000}});
+                //await using var page = await Browser.NewPageAsync();
+
+                await Browser.CurrentPage.GoToAsync(Constants.GOOGLE_PHOTOS_URL, WaitUntilNavigation.Networkidle0);
+                while (true)
+                {
+                    if (Browser.CurrentPage.Url.Contains(Constants.GOOGLE_PHOTOS_URL))
+                    {
+                        break;
+                    }
+
+                    //wait for login
+                    await Browser.CurrentPage.WaitForNavigationAsync();
+                }
+
+                UserName = (await Browser.CurrentPage.EvaluateExpressionAsync(
+                    @"let username = function() {
+                            let elem = document.querySelectorAll('.gb_pe div');
+                            let userMail = elem[elem.length-1].innerText;
+                            return userMail;
+                            };
+                            username();")).ToObject<string>();
+
+                IsSignedIn = true;
+
+                var liteDB = new LiteInstance(UserName);
+                liteDB.Initialize();
+
+                MTE.StartAction = async () =>
+                {
+                    await Browser.LaunchIfClosed();
+                    var page = Browser.CurrentPage;
+                    var rootOpenCreate = new OpenOrCreateAlbumTask(LocalRoot, MTE, page, liteDB);
+                    MTE.Enqueue(rootOpenCreate);
+
+                };
+                MTE.EndingAction = async () =>
+                {
+                    await Browser.Close();
+                };
+
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+            }
+
+            IsSigningIn = false;
+
+        }
+
+        public BrowserInstance Browser { get; set; }
+
 
         private void NotifyPropertyChanged([CallerMemberName] string propertyName = "")
         {

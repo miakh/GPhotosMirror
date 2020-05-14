@@ -3,12 +3,31 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:primitives="clr-namespace:System.Windows.Controls.Ribbon.Primitives;assembly=System.Windows.Controls.Ribbon"
              xmlns:converters="clr-namespace:GPhotosMirror.Converters"
+             xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit"
+             xmlns:system="clr-namespace:System;assembly=System.Runtime"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             Exit="App_OnExit"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <materialDesign:BundledTheme BaseTheme="Light" PrimaryColor="Grey" SecondaryColor="Lime" />
+                <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Defaults.xaml" />
+                <ResourceDictionary Source="Themes/Controls.ContextMenu.xaml"></ResourceDictionary>
+            </ResourceDictionary.MergedDictionaries>
+            <converters:InvertedBooleanToVisibility x:Key="InvertedBooleanToVisibility" />
+            <converters:InvertedBoolean x:Key="InvertedBoolean" />
+            <converters:BooleanToVisibility x:Key="BooleanToVisibility" />
 
-        <converters:InvertedBooleanToVisibility x:Key="InvertedBooleanToVisibility" />
-        <converters:InvertedBoolean x:Key="InvertedBoolean" />
-        <converters:BooleanToVisibility x:Key="BooleanToVisibility" />
 
+            <Style TargetType="avalonedit:TextEditor">
+                <Setter Property="Background" Value="{DynamicResource TextEditorBackground}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesignPaper}" />
+                <Setter Property="avalonedit:TextArea.Foreground" Value="{DynamicResource MaterialDesignBody}" />
+                <Setter Property="avalonedit:TextView.LinkTextForegroundBrush"
+                        Value="{DynamicResource PrimaryHueMidBrush}" />
+            </Style>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>
