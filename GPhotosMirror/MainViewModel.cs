@@ -49,11 +49,6 @@ namespace GPhotosMirror
             }
         }
 
-        public string LocalRootName
-        {
-            get => new DirectoryInfo(LocalRoot).Name;
-        }
-
         public MainViewModel()
         {
             TScheduler = TaskScheduler.FromCurrentSynchronizationContext();
