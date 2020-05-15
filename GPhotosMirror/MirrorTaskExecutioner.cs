@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using ByteSizeLib;
 using Priority_Queue;
+using Serilog;
 
 namespace GPhotosMirror
 {
@@ -45,6 +46,7 @@ namespace GPhotosMirror
         {
 
             IsExecuting = true;
+            Log.Information("Uploading process has started.");
             cancellationTokenSource = new CancellationTokenSource();
             if (StartAction != null)
             {
@@ -73,18 +75,27 @@ namespace GPhotosMirror
                                                               || e is PuppeteerSharp.ChromiumProcessException)
                 {
                     //stop action
+                    Log.Information("You have stopped the uploading process.");
                     return;
                 }
 
-                Console.WriteLine(e);
                 throw e;
             }
             catch (Exception e)
             {
                 Console.WriteLine(e);
-                throw e;
+                Log.Error($"Uploading process has stopped.");
+                Log.Error($"{e}");
             }
 
+            if (AllFilesUpload == 0)
+            {
+                Log.Information($"No folder has been uploaded.");
+            }
+            else
+            {
+                Log.Information($"Uploaded {AllFilesUpload} files ({new ByteSize(AllBytesUpload)}).");
+            }
             await StopExecution();
         }
 
@@ -97,6 +108,10 @@ namespace GPhotosMirror
         {
             get
             {
+                if (AllFilesUpload == 0)
+                {
+                    return "";
+                }
                 //use double in constructor to get byte size instead of bite size
                 return $"Uploaded ({AllFilesUpload - RemainingFilesUpload}/{AllFilesUpload}). {new ByteSize((double)AllBytesUpload- RemainingBytesUpload)} from {new ByteSize((double)AllBytesUpload)}";
             }

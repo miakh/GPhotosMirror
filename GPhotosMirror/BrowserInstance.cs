@@ -19,6 +19,10 @@ namespace GPhotosMirror
 
         public async Task Close()
         {
+            if (CurrentBrowser == null)
+            {
+                return;
+            }
             await CurrentPage.CloseAsync();
             await CurrentBrowser.CloseAsync();
             await CurrentPage.DisposeAsync();

@@ -4,8 +4,10 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using ByteSizeLib;
 using Priority_Queue;
 using PuppeteerSharp;
+using Serilog;
 
 namespace GPhotosMirror
 {
@@ -165,6 +167,7 @@ namespace GPhotosMirror
             await page.Keyboard.TypeAsync(localFolderName);
             await page.Keyboard.PressAsync("Enter");
             await page.WaitForSelectorAsync($"TEXTAREA.ajQY2.v3oaBb[initial-data-value=\"{localFolderName}\"]");
+            Log.Information($"Created {localFolderName}");
         }
         public CreateAlbumTask( string localFolder, Page page, LiteInstance liteInstance) : base(page, liteInstance)
         {
@@ -213,16 +216,22 @@ namespace GPhotosMirror
 
             //upload box showed
             await page.WaitForSelectorAsync(".aHPraf.zPNfib", Constants.NoTimeoutOptions);
+
+            var localFolderName = Path.GetFileName(_parent);
+            Log.Information($"Uploading {_localFilesPaths.Count()} files ({new ByteSize((double)FileSize)}) to {localFolderName}...");
+
             //upload box hidden
             await page.WaitForSelectorAsync(".aHPraf.zPNfib", Constants.NoTimeoutOptionsHidden);
+
             var errorBox = await page.QuerySelectorAsync(".WjkDEe.zPNfib");
             if (errorBox == null)
             {
                 _liteInstance.FilesUp(_localFilesPaths, _parent);
+                Log.Information($"{_localFilesPaths.Count()} files ({new ByteSize((double)FileSize)}) successfully uploaded to {localFolderName}.");
             }
             else
             {
-                //some error
+                Log.Error($"There was an error while uploading to {localFolderName}.");
             }
         }
 

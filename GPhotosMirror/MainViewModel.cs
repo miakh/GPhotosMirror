@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -66,17 +67,13 @@ namespace GPhotosMirror
 
         public void Initialize()
         {
-            Task.Run(async () =>
-            {
-                while (true)
-                {
-                    Log.Information("Hello");
-                    await Task.Delay(1000);
-                }
-            }).SafeFireAndForget();
             CheckAndUpdate().SafeFireAndForget();
 
+            Log.Information($"Welcome in GPhotosMirror (version {Assembly.GetExecutingAssembly().GetName().Version.ToString(3)}).");
+
+            //Load local root folder from settings
             LocalRoot = UserSettings.Default.RootPath;
+
             // Sign in just to make sure it is possible
             if (UserSettings.Default.WasSignedIn)
             {
@@ -105,24 +102,26 @@ namespace GPhotosMirror
             var result = await manager.CheckForUpdatesAsync();
             if (result.CanUpdate)
             {
+                Log.Information($"New version is available ({result.LastVersion}).");
                 if (MessageBox.Show($"New version is available ({result.LastVersion}). Do you want to update?",
-                    "Confirmation", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
-                {
-                    var progress = new ProgressDialog();
-                    progress.Title = "Downloading update...";
-                    progress.Show();
-                    await manager.PrepareUpdateAsync(result.LastVersion, new Progress<double>(
-                         p => progress.Progress = p * 100)
-                    );
-                    progress.Hide();
+                        "Confirmation", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+                    {
+                        var progress = new ProgressDialog();
+                        Log.Information($"Downloading update...");
+                        progress.Title = "Downloading update...";
+                        progress.Show();
+                        await manager.PrepareUpdateAsync(result.LastVersion, new Progress<double>(
+                             p => progress.Progress = p * 100)
+                        );
+                        progress.Hide();
 
-                    //progressDialog.Text = "Installing update...";
+                        Log.Information($"Installing update...");
 
-                    manager.LaunchUpdater(result.LastVersion);
+                        manager.LaunchUpdater(result.LastVersion);
 
-                    // Terminate the running application so that the updater can overwrite files
-                    Environment.Exit(0);
-                }
+                        // Terminate the running application so that the updater can overwrite files
+                        Environment.Exit(0);
+                    }
             }
         }
 
@@ -146,6 +145,8 @@ namespace GPhotosMirror
             Directory.Delete(UserDataDirPath, true);
             IsSignedIn = false;
             NotifyPropertyChanged(nameof(UserName));
+            Log.Information($"Now you are signed out.");
+
         }
 
         private void EnsureDirectoryExist(string directory)
@@ -172,6 +173,8 @@ namespace GPhotosMirror
             LocalRoot = synchronizePath;
             EnsureDirectoryExist(LocalRoot);
             NotifyPropertyChanged(nameof(CanUpload));
+            Log.Information($"Directory with photos set to {LocalRoot}.");
+
         }
 
         public ICommand ChangePathCommand
@@ -256,6 +259,8 @@ namespace GPhotosMirror
         private async Task SignIn()
         {
             IsSigningIn = true;
+            Log.Information($"Signing in...");
+
             try
             {
                 Browser = new BrowserInstance(UserDataDirPath);
@@ -285,6 +290,7 @@ namespace GPhotosMirror
                             username();")).ToObject<string>();
 
                 IsSignedIn = true;
+                Log.Information($"Signed in as {UserName}.");
 
                 var liteDB = new LiteInstance(UserName);
                 liteDB.Initialize();
@@ -305,6 +311,10 @@ namespace GPhotosMirror
             }
             catch (Exception e)
             {
+                if (!IsSignedIn)
+                {
+                    Log.Error($"Signing in ended with error: {e}");
+                }
                 Console.WriteLine(e);
             }
 
