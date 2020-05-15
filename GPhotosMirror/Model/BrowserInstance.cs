@@ -72,9 +72,6 @@ namespace GPhotosMirror
 
                 //await CurrentPage.SetViewportAsync();
             }
-            
-
-            
 
         }
     }

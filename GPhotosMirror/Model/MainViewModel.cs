@@ -11,8 +11,10 @@ using System.Windows;
 using System.Windows.Input;
 using AsyncAwaitBestPractices;
 using GalaSoft.MvvmLight.Command;
+using GPhotosMirror.Model;
 using GPhotosMirror.Output;
 using GPhotosMirror.Output.UI;
+using GPhotosMirror.Views;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using Onova;
 using Onova.Services;
@@ -66,7 +68,7 @@ namespace GPhotosMirror
         {
             CheckAndUpdate().SafeFireAndForget();
 
-            Log.Information($"Welcome in GPhotosMirror (version {Assembly.GetExecutingAssembly().GetName().Version.ToString(3)}).");
+            //Log.Information($"Welcome in GPhotosMirror (version {Assembly.GetExecutingAssembly().GetName().Version.ToString(3)}).");
 
             //Load local root folder from settings
             LocalRoot = UserSettings.Default.RootPath;

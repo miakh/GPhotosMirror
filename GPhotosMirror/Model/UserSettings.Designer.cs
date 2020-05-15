@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace GPhotosMirror {
+namespace GPhotosMirror.Model {
     
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]

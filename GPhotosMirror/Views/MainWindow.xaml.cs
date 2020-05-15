@@ -1,15 +1,14 @@
-﻿using System.Windows;
-using System.Windows.Controls;
-using GPhotosMirror.Output;
+﻿using GPhotosMirror.Output;
 using GPhotosMirror.Output.UI;
+using MahApps.Metro.Controls;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace GPhotosMirror
+namespace GPhotosMirror.Views
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class MainWindow : MetroWindow
     {
         public MainWindow(MainViewModel mainViewModel)
         {

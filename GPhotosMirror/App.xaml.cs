@@ -7,6 +7,7 @@ using GPhotosMirror.AvalonEdit;
 using GPhotosMirror.AvalonEdit.Highlighting;
 using GPhotosMirror.Output;
 using GPhotosMirror.Output.UI;
+using GPhotosMirror.Views;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Serilog.Events;
@@ -21,7 +22,10 @@ namespace GPhotosMirror
         private async void App_OnExit(object sender, ExitEventArgs e)
         {
             var mainViewModel = Container.GetService<MainViewModel>();
-            await mainViewModel.Browser.Close();
+            if (mainViewModel.Browser != null)
+            {
+                await mainViewModel.Browser.Close();
+            }
         }
 
         public App()
