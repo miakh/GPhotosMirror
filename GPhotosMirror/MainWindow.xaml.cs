@@ -1,4 +1,7 @@
 ﻿using System.Windows;
+using System.Windows.Controls;
+using GPhotosMirror.Output;
+using GPhotosMirror.Output.UI;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace GPhotosMirror
@@ -8,10 +11,20 @@ namespace GPhotosMirror
     /// </summary>
     public partial class MainWindow : Window
     {
-        public MainWindow()
+        public MainWindow(MainViewModel mainViewModel)
         {
             InitializeComponent();
-            this.DataContext = (App.Current as App).Container.GetService<MainViewModel>();
+
+            this.DataContext = mainViewModel;
+            var outputViewModel = (OutputViewModel)App.Services.GetService<IOutput>();
+            //var outputView = (OutputView)App.Services.GetService<IOutputView>();
+            //mainGrid.Children.Add(outputView);
+            //Grid.SetRow(outputView, 1);
+            //outputView.DataContext = outputViewModel;
+            //outputViewModel.OnViewLoaded(outputView);
+            OutputView.DataContext = outputViewModel;
+            outputViewModel.OnViewLoaded(OutputView);
+
         }
     }
 }

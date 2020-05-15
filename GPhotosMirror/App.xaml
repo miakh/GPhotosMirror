@@ -7,13 +7,16 @@
              xmlns:system="clr-namespace:System;assembly=System.Runtime"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              Exit="App_OnExit"
-             StartupUri="MainWindow.xaml">
+             Startup="App_OnStartup"
+             >
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <materialDesign:BundledTheme BaseTheme="Light" PrimaryColor="Grey" SecondaryColor="Lime" />
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Defaults.xaml" />
                 <ResourceDictionary Source="Themes/Controls.ContextMenu.xaml"></ResourceDictionary>
+                <ResourceDictionary Source="Themes/MaterialDesignTheme.AppToolBar.xaml"></ResourceDictionary>
+
             </ResourceDictionary.MergedDictionaries>
             <converters:InvertedBooleanToVisibility x:Key="InvertedBooleanToVisibility" />
             <converters:InvertedBoolean x:Key="InvertedBoolean" />

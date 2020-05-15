@@ -9,10 +9,13 @@ using System.Windows;
 using System.Windows.Input;
 using AsyncAwaitBestPractices;
 using GalaSoft.MvvmLight.Command;
+using GPhotosMirror.Output;
+using GPhotosMirror.Output.UI;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using Onova;
 using Onova.Services;
 using PuppeteerSharp;
+using Serilog;
 
 namespace GPhotosMirror
 {
@@ -61,8 +64,16 @@ namespace GPhotosMirror
         private RelayCommand signInCommand;
         private bool _isSigningIn;
 
-        public async void Initialize()
+        public void Initialize()
         {
+            Task.Run(async () =>
+            {
+                while (true)
+                {
+                    Log.Information("Hello");
+                    await Task.Delay(1000);
+                }
+            }).SafeFireAndForget();
             CheckAndUpdate().SafeFireAndForget();
 
             LocalRoot = UserSettings.Default.RootPath;
@@ -79,6 +90,8 @@ namespace GPhotosMirror
                     NotifyPropertyChanged(nameof(CanUpload));
                 }
             };
+
+            
         }
 
         private async Task CheckAndUpdate()
