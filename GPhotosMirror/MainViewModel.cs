@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -17,6 +18,7 @@ using Onova;
 using Onova.Services;
 using PuppeteerSharp;
 using Serilog;
+using Serilog.Events;
 
 namespace GPhotosMirror
 {
@@ -74,6 +76,12 @@ namespace GPhotosMirror
             //Load local root folder from settings
             LocalRoot = UserSettings.Default.RootPath;
 
+            if (string.IsNullOrWhiteSpace(LocalRoot) || !UserSettings.Default.WasSignedIn)
+            {
+                Log.Information($"Sign in and choose folder you want to enable upload to Google Photos.");
+                Log.Information($"Folder and all the subfolders will be uploaded as independent albums.");
+            }
+
             // Sign in just to make sure it is possible
             if (UserSettings.Default.WasSignedIn)
             {
@@ -87,8 +95,6 @@ namespace GPhotosMirror
                     NotifyPropertyChanged(nameof(CanUpload));
                 }
             };
-
-            
         }
 
         private async Task CheckAndUpdate()
