@@ -113,7 +113,7 @@ namespace GPhotosMirror
                     return "";
                 }
                 //use double in constructor to get byte size instead of bite size
-                return $"Uploaded ({AllFilesUpload - RemainingFilesUpload}/{AllFilesUpload}). {new ByteSize((double)AllBytesUpload- RemainingBytesUpload)} from {new ByteSize((double)AllBytesUpload)}";
+                return $"Uploaded {AllFilesUpload - RemainingFilesUpload} files ({new ByteSize((double)AllBytesUpload- RemainingBytesUpload)})";
             }
         }
 
