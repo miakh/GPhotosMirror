@@ -17,18 +17,29 @@
                  d:DataContext="{d:DesignInstance gPhotosMirror:MainViewModel}"
                  UseLayoutRounding="True"
                  TitleCharacterCasing="Normal"
-                 
-                 >
+                 HorizontalAlignment="Left"
+                 Style="{DynamicResource MahApps.Styles.MetroWindow.Clean}"
+>
     <!--<mah:MetroWindow.WindowButtonCommands>
         <mah:WindowButtonCommands Template="{DynamicResource MahApps.Metro.Templates.WindowButtonCommands.Clean.Win10}" />
     </mah:MetroWindow.WindowButtonCommands>-->
     <Window.Resources>
         <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Clean/Clean.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+            </ResourceDictionary>
+        </Window.Resources>
+    <!--<mah:MetroWindow.WindowButtonCommands>
+        <mah:WindowButtonCommands Style="{DynamicResource MahApps.Styles.WindowButtonCommands.Clean.Win10}" />
+    </mah:MetroWindow.WindowButtonCommands>-->
+    <!--<Window.Resources>
+        <ResourceDictionary>
         <ResourceDictionary.MergedDictionaries>
-            <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Clean/Clean.xaml" />
+            <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles" />
         </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
-        </Window.Resources>
+        </Window.Resources>-->
 
 <Grid>
         <Grid.RowDefinitions>
