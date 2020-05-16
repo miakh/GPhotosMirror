@@ -20,7 +20,7 @@
                                 Style="{StaticResource ToolDockPanelCompact}">
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="Show output from: " VerticalAlignment="Center" Margin="0,0,2,0"/>
-                <ComboBox x:Name="OutputSource" DisplayMemberPath="Value" SelectedValuePath="Key" 
+                <ComboBox x:Name="OutputSource" DisplayMemberPath="DisplayName" 
                           SelectedValue="{Binding SelectedOutputSource, Mode=TwoWay}"
                           VerticalAlignment="Center" MinWidth="160"
                           ItemsSource="{Binding OutputSource}"

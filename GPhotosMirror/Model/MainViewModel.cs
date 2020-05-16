@@ -77,6 +77,8 @@ namespace GPhotosMirror
             {
                 Log.Information($"Sign in and choose folder you want to enable upload to Google Photos.");
                 Log.Information($"Folder and all the subfolders will be uploaded as independent albums.");
+                Log.Information($"If you the photo is already uploaded then it is skipped.");
+
             }
 
             // Sign in just to make sure it is possible

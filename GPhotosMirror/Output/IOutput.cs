@@ -4,10 +4,13 @@ namespace GPhotosMirror.Output
 {
     public interface IOutput
     {
+        public string DisplayName { get; }
         TextWriter Writer { get; }
         void AppendLine(string text);
         void Append(string text);
-        void OnViewLoaded(object view);
+        void LoadView(object view);
+        void UnloadView();
+
         void Clear();
 
     }

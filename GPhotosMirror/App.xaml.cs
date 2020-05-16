@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using AsyncAwaitBestPractices;
@@ -32,10 +34,11 @@ namespace GPhotosMirror
         {
             Container = RegisterServices();
 
+            // configure Serilog
             var log = new LoggerConfiguration()
                 .MinimumLevel.Debug();
             log.WriteTo.OutputModule(
-                () => Services.GetService<IOutput>(),
+                () => Services.GetService<OutputViewModel>().OutputSource.First(),
                 () =>
                 {
                     var outputLogFilter = Services.GetService<IOutputLogFilter>();
@@ -44,23 +47,22 @@ namespace GPhotosMirror
 #endif
                     return outputLogFilter;
                 });
-
             Log.Logger = log.CreateLogger();
-
         }
         public IServiceProvider Container { get; private set; }
-        public static IServiceProvider Services
-        {
-            get { return (App.Current as App).Container; }
-        }
+        public static IServiceProvider Services => ((App)Current).Container;
+
         private IServiceProvider RegisterServices()
         {
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddSingleton<MainViewModel>();
             serviceCollection.AddSingleton<MainWindow>();
 
-            //serviceCollection.AddSingleton<IOutputView, OutputView>();
-            serviceCollection.AddSingleton<IOutput, OutputViewModel>();
+            var applicationOutput = new Output.UI.Output("Application");
+            var puppeteerOutput = new Output.UI.Output("Puppeteer");
+            var outputViewModel = new OutputViewModel(new List<IOutput>() { applicationOutput, puppeteerOutput });
+
+            serviceCollection.AddSingleton(outputViewModel);
             serviceCollection.AddSingleton<IOutputLogFilter, SettingsOutputLogFilter>();
             serviceCollection.AddSingleton<IHighlightingProvider, LogHighlightingProvider>();
             return serviceCollection.BuildServiceProvider();

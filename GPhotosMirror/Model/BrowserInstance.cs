@@ -2,7 +2,10 @@
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using GPhotosMirror.Output;
 using PuppeteerSharp;
+using Serilog;
+using Serilog.Extensions.Logging;
 
 namespace GPhotosMirror
 {

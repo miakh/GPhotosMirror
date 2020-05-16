@@ -8,53 +8,22 @@ using System.Text;
 
 namespace GPhotosMirror.Output.UI
 {
-    public class OutputViewModel : IOutput, INotifyPropertyChanged
+    public class Output : IOutput
     {
         private readonly StringBuilder _stringBuilder;
-        private readonly OutputWriter _writer;
         private IOutputView _view;
-        private IDictionary<string, string> _outputSource;
-        private string _selectedOutputSource;
 
-        public TextWriter Writer => _writer;
+        public string DisplayName { get; }
 
-        public OutputViewModel()
+        public Output(string displayName)
         {
-            DisplayName = "Output";
-
+            DisplayName = displayName;
             _stringBuilder = new StringBuilder();
-
             _writer = new OutputWriter(this);
 
-            OutputSource = new Dictionary<string, string>
-            {
-                {"app_logger","Application" }
-            };
         }
-
-        public string DisplayName { get; set; }
-
-        public IDictionary<string, string> OutputSource
-        {
-            get => _outputSource;
-            private set
-            {
-                _outputSource = value;
-                if (string.IsNullOrEmpty(SelectedOutputSource) || !_outputSource.ContainsKey(SelectedOutputSource))
-                    SelectedOutputSource = _outputSource.FirstOrDefault().Key;
-            }
-        }
-
-        public string SelectedOutputSource
-        {
-            get => _selectedOutputSource;
-            set
-            {
-                if (value == _selectedOutputSource) return;
-                _selectedOutputSource = value;
-                OnPropertyChanged();
-            }
-        }
+        public TextWriter Writer => _writer;
+        private readonly OutputWriter _writer;
 
         public void Clear()
         {
@@ -75,11 +44,59 @@ namespace GPhotosMirror.Output.UI
             _view?.AppendText(text);
         }
 
-        public void OnViewLoaded(object view)
+        public void LoadView(object view)
         {
             _view = (IOutputView)view;
             _view.SetText(_stringBuilder.ToString());
             _view.ScrollToEnd();
+        }
+
+        public void UnloadView()
+        {
+            _view = null;
+        }
+    }
+
+    public class OutputViewModel : INotifyPropertyChanged
+    {
+        private IOutputView _view;
+        private IOutput _selectedOutputSource;
+
+        public OutputViewModel(List<IOutput> outputs)
+        {
+            OutputSource = outputs;
+        }
+        public List<IOutput> OutputSource
+        {
+            get;
+            set;
+        }
+
+        public IOutput SelectedOutputSource
+        {
+            get
+            {
+                if (_selectedOutputSource == null)
+                {
+                    _selectedOutputSource = OutputSource.FirstOrDefault();
+                    _selectedOutputSource?.LoadView(_view);
+                }
+
+                return _selectedOutputSource;
+            } 
+            set
+            {
+                if (value == _selectedOutputSource) return;
+                _selectedOutputSource.UnloadView();
+                _selectedOutputSource = value;
+                _selectedOutputSource.LoadView(_view);
+                OnPropertyChanged();
+            }
+        }
+
+        public void OnViewLoaded(object _view)
+        {
+            this._view = (OutputView)_view;
         }
 
         public event PropertyChangedEventHandler PropertyChanged;

@@ -15,12 +15,12 @@ namespace GPhotosMirror.Views
             InitializeComponent();
 
             this.DataContext = mainViewModel;
-            var outputViewModel = (OutputViewModel)App.Services.GetService<IOutput>();
+            var outputViewModel = (OutputViewModel)App.Services.GetService<OutputViewModel>();
             //var outputView = (OutputView)App.Services.GetService<IOutputView>();
             //mainGrid.Children.Add(outputView);
             //Grid.SetRow(outputView, 1);
             //outputView.DataContext = outputViewModel;
-            //outputViewModel.OnViewLoaded(outputView);
+            //outputViewModel.LoadView(outputView);
             OutputView.DataContext = outputViewModel;
             outputViewModel.OnViewLoaded(OutputView);
 

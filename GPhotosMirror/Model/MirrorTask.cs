@@ -227,7 +227,7 @@ namespace GPhotosMirror
             if (errorBox == null)
             {
                 _liteInstance.FilesUp(_localFilesPaths, _parent);
-                Log.Information($"{_localFilesPaths.Count()} files ({new ByteSize((double)FileSize)}) successfully uploaded to {localFolderName}.");
+                Log.Information($"{_localFilesPaths.Count()} files ({new ByteSize((double)FileSize)}) uploaded to {localFolderName}.");
             }
             else
             {
