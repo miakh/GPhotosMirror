@@ -26,7 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AsyncAwaitBestPractices" Version="4.1.0" />
+    <PackageReference Include="AsyncAwaitBestPractices" Version="4.1.1" />
     <PackageReference Include="AvalonEdit" Version="6.0.1" />
     <PackageReference Include="ByteSize" Version="2.0.0" />
     <PackageReference Include="CSharpFunctionalExtensions" Version="2.7.1" />
@@ -36,12 +36,17 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="3.1.4" />
     <PackageReference Include="Microsoft.Extensions.Logging.Filter" Version="1.1.2" />
     <PackageReference Include="MvvmLightLibsStd10" Version="5.4.1.1" />
-    <PackageReference Include="Onova" Version="2.6.0" />
     <PackageReference Include="OptimizedPriorityQueue" Version="4.2.0" />
     <PackageReference Include="PuppeteerSharp" Version="2.0.3" />
     <PackageReference Include="Serilog" Version="2.9.0" />
     <PackageReference Include="Serilog.Extensions.Logging" Version="3.0.1" />
     <PackageReference Include="WindowsAPICodePack-Shell" Version="1.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Onova">
+      <HintPath>OnovaDll\Onova.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>
