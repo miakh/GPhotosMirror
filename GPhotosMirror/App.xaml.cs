@@ -24,6 +24,11 @@ namespace GPhotosMirror
     {
         private async void App_OnExit(object sender, ExitEventArgs e)
         {
+            await CloseBrowser();
+        }
+
+        private async Task CloseBrowser()
+        {
             var mainViewModel = Container.GetService<MainViewModel>();
             if (mainViewModel.Browser != null)
             {
@@ -68,6 +73,10 @@ namespace GPhotosMirror
 
         private void App_OnStartup(object sender, StartupEventArgs e)
         {
+            Application.Current.DispatcherUnhandledException += async (o, args) =>
+            {
+                await CloseBrowser();
+            };
             Current.MainWindow = Container.GetService<MainWindow>();
             Current.MainWindow.Show();
         }
