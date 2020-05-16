@@ -20,14 +20,12 @@
 
                 <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Controls.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Fonts.xaml" />
-                <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Themes/light.brown.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Themes/light.blue.xaml" />
 
             </ResourceDictionary.MergedDictionaries>
             <converters:InvertedBooleanToVisibility x:Key="InvertedBooleanToVisibility" />
             <converters:InvertedBoolean x:Key="InvertedBoolean" />
             <converters:BooleanToVisibility x:Key="BooleanToVisibility" />
-
-
 
             <Style TargetType="avalonedit:TextEditor">
                 <Setter Property="Background" Value="{DynamicResource TextEditorBackground}" />

@@ -18,7 +18,7 @@
                  UseLayoutRounding="True"
                  TitleCharacterCasing="Normal"
                  HorizontalAlignment="Left"
-                 Style="{DynamicResource MahApps.Styles.MetroWindow.Clean}"
+                 Style="{DynamicResource MahApps.Styles.MetroWindow.VisualStudio}"
 >
     <!--<mah:MetroWindow.WindowButtonCommands>
         <mah:WindowButtonCommands Template="{DynamicResource MahApps.Metro.Templates.WindowButtonCommands.Clean.Win10}" />
@@ -26,8 +26,10 @@
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-        <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Clean/Clean.xaml" />
-    </ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/vs/window.xaml" />
+        <!--<ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/clean/cleanwindow.xaml" />-->
+
+</ResourceDictionary.MergedDictionaries>
             </ResourceDictionary>
         </Window.Resources>
     <!--<mah:MetroWindow.WindowButtonCommands>
@@ -43,7 +45,7 @@
 
 <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="128"/>
+            <RowDefinition Height="142"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <StackPanel>
