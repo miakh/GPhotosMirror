@@ -68,7 +68,7 @@ namespace GPhotosMirror
         {
             CheckAndUpdate().SafeFireAndForget();
 
-            Log.Information($"Welcome in GPhotosMirror (version {Assembly.GetExecutingAssembly().GetName().Version.ToString(3)})!!!");
+            Log.Information($"Welcome in GPhotosMirror (version {Assembly.GetExecutingAssembly().GetName().Version.ToString(3)})!");
 
             //Load local root folder from settings
             LocalRoot = UserSettings.Default.RootPath;

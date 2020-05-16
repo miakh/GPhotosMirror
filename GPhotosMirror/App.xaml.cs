@@ -12,6 +12,7 @@ using GPhotosMirror.Output.UI;
 using GPhotosMirror.Views;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
+using Serilog.Core;
 using Serilog.Events;
 
 namespace GPhotosMirror
@@ -33,24 +34,10 @@ namespace GPhotosMirror
         public App()
         {
             Container = RegisterServices();
-
-            // configure Serilog
-            var log = new LoggerConfiguration()
-                .MinimumLevel.Debug();
-            log.WriteTo.OutputModule(
-                () => Services.GetService<OutputViewModel>().OutputSource.First(),
-                () =>
-                {
-                    var outputLogFilter = Services.GetService<IOutputLogFilter>();
-#if DEBUG
-                    outputLogFilter.MinLogLevel = LogEventLevel.Debug;
-#endif
-                    return outputLogFilter;
-                });
-            Log.Logger = log.CreateLogger();
         }
         public IServiceProvider Container { get; private set; }
         public static IServiceProvider Services => ((App)Current).Container;
+        public static Logger PuppeteerLogger => Services.GetService<Logger>();
 
         private IServiceProvider RegisterServices()
         {
@@ -61,8 +48,19 @@ namespace GPhotosMirror
             var applicationOutput = new Output.UI.Output("Application");
             var puppeteerOutput = new Output.UI.Output("Puppeteer");
             var outputViewModel = new OutputViewModel(new List<IOutput>() { applicationOutput, puppeteerOutput });
-
             serviceCollection.AddSingleton(outputViewModel);
+
+            // configure Serilog
+            var log = new LoggerConfiguration().MinimumLevel.Debug();
+            log.WriteTo.OutputModule(()=>applicationOutput);
+            Log.Logger = log.CreateLogger();
+
+            // configure Puppeteer logger
+            var puppeteerLog = new LoggerConfiguration().MinimumLevel.Debug();
+            puppeteerLog.WriteTo.OutputModule(() => puppeteerOutput);
+            Logger puppeteerLogger = puppeteerLog.CreateLogger();
+            serviceCollection.AddSingleton(puppeteerLogger);
+
             serviceCollection.AddSingleton<IOutputLogFilter, SettingsOutputLogFilter>();
             serviceCollection.AddSingleton<IHighlightingProvider, LogHighlightingProvider>();
             return serviceCollection.BuildServiceProvider();

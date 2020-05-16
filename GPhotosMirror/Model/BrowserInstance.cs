@@ -73,6 +73,52 @@ namespace GPhotosMirror
                     CurrentPage = await CurrentBrowser.NewPageAsync();
                 }
 
+                // configure Logger
+                CurrentPage.FrameNavigated += (sender, args) =>
+                {
+                    App.PuppeteerLogger.Information($"Navigated to {args.Frame.Url}");
+                };
+                CurrentPage.Load += (sender, args) =>
+                {
+                    App.PuppeteerLogger.Information($"Loaded {CurrentPage.Url}");
+                };
+                CurrentPage.Error += (sender, args) =>
+                {
+                    App.PuppeteerLogger.Error($"{args.Error}");
+                };
+                CurrentPage.DOMContentLoaded += (sender, args) =>
+                {
+                    App.PuppeteerLogger.Information($"DOMLoaded {CurrentPage.Url}");
+                };
+                CurrentPage.RequestFailed += (sender, args) =>
+                {
+                    App.PuppeteerLogger.Error($"{args.Request.Method.Method} {args.Request.Url}");
+                };
+                CurrentPage.Close += (sender, args) =>
+                {
+                    App.PuppeteerLogger.Information($"Page closed.");
+                };
+                CurrentPage.PageError += (sender, args) =>
+                {
+                    App.PuppeteerLogger.Error($"PageError {args.Message}");
+                };
+                CurrentPage.Dialog += (sender, args) =>
+                {
+                    App.PuppeteerLogger.Information($"{args.Dialog.DialogType} {args.Dialog.Message}");
+                };
+                CurrentBrowser.Closed += (sender, args) =>
+                {
+                    App.PuppeteerLogger.Information($"Browser closed.");
+                };
+
+                //CurrentPage.Request += (sender, args) =>
+                //{
+                //    App.PuppeteerLogger.Information($"{args.Request.Method.Method} {args.Request.Url}");
+                //};
+                //CurrentPage.Response += (sender, args) =>
+                //{
+                //    App.PuppeteerLogger.Information($"{args.Response.Ok} {args.Response.Url}");
+                //};
                 //await CurrentPage.SetViewportAsync();
             }
 
