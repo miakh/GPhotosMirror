@@ -1,4 +1,7 @@
-﻿using GPhotosMirror.Output;
+﻿using System.Windows;
+using System.Windows.Controls;
+using Enterwell.Clients.Wpf.Notifications;
+using GPhotosMirror.Output;
 using GPhotosMirror.Output.UI;
 using MahApps.Metro.Controls;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,6 +27,7 @@ namespace GPhotosMirror.Views
             OutputView.DataContext = outputViewModel;
             outputViewModel.OnViewLoaded(OutputView);
 
+            NotificationMessageContainer.Manager = App.Services.GetService<NotificationMessageManager>();
         }
     }
 }

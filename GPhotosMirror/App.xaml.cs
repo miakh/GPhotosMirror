@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using AsyncAwaitBestPractices;
+using Enterwell.Clients.Wpf.Notifications;
 using GPhotosMirror.AvalonEdit;
 using GPhotosMirror.AvalonEdit.Highlighting;
 using GPhotosMirror.Output;
@@ -65,7 +66,7 @@ namespace GPhotosMirror
             puppeteerLog.WriteTo.OutputModule(() => puppeteerOutput);
             Logger puppeteerLogger = puppeteerLog.CreateLogger();
             serviceCollection.AddSingleton(puppeteerLogger);
-
+            serviceCollection.AddSingleton<NotificationMessageManager>();
             serviceCollection.AddSingleton<IOutputLogFilter, SettingsOutputLogFilter>();
             serviceCollection.AddSingleton<IHighlightingProvider, LogHighlightingProvider>();
             return serviceCollection.BuildServiceProvider();

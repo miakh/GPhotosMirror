@@ -8,24 +8,31 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using AsyncAwaitBestPractices;
+using Enterwell.Clients.Wpf.Notifications;
 using GalaSoft.MvvmLight.Command;
 using GPhotosMirror.Model;
 using GPhotosMirror.Output;
 using GPhotosMirror.Output.UI;
 using GPhotosMirror.Views;
+using MahApps.Metro.Controls;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using Onova;
 using Onova.Services;
 using PuppeteerSharp;
 using Serilog;
 using Serilog.Events;
+using Brushes = System.Drawing.Brushes;
+using Color = System.Drawing.Color;
 
 namespace GPhotosMirror
 {
     public class MainViewModel : INotifyPropertyChanged
     {
+        private readonly NotificationMessageManager _notificationMessageManager;
         private string _localRoot;
         private ICommand changePath;
         private RelayCommand logoutCommand;
@@ -51,8 +58,9 @@ namespace GPhotosMirror
             }
         }
 
-        public MainViewModel()
+        public MainViewModel(NotificationMessageManager notificationMessageManager)
         {
+            _notificationMessageManager = notificationMessageManager;
             TScheduler = TaskScheduler.FromCurrentSynchronizationContext();
             Initialize();
         }
@@ -64,7 +72,7 @@ namespace GPhotosMirror
         private RelayCommand signInCommand;
         private bool _isSigningIn;
 
-        public void Initialize()
+        public async void Initialize()
         {
             CheckAndUpdate().SafeFireAndForget();
 
@@ -94,6 +102,7 @@ namespace GPhotosMirror
                     NotifyPropertyChanged(nameof(CanUpload));
                 }
             };
+
         }
 
         private async Task CheckAndUpdate()
@@ -107,27 +116,56 @@ namespace GPhotosMirror
             var result = await manager.CheckForUpdatesAsync();
             if (result.CanUpdate)
             {
-                Log.Information($"New version is available ({result.LastVersion}).");
-                if (MessageBox.Show($"New version is available ({result.LastVersion}). Do you want to update?",
-                        "Confirmation", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+                NotificationMessageBuilder()
+                    .Animates(true)
+                    .AnimationInDuration(0.5)
+                    .AnimationOutDuration(0)
+                    .HasMessage($"New version is available ({result.LastVersion}).")
+                    .Dismiss().WithButton("Update now", async button =>
                     {
-                        var progress = new ProgressDialog();
-                        Log.Information($"Downloading update...");
-                        progress.Title = "Downloading update...";
-                        progress.Show();
-                        await manager.PrepareUpdateAsync(result.LastVersion, new Progress<double>(
-                             p => progress.Progress = p * 100)
-                        );
-                        progress.Hide();
+                        var downloadingBar = new MetroProgressBar()
+                        {
+                            VerticalAlignment = VerticalAlignment.Bottom,
+                            HorizontalAlignment = HorizontalAlignment.Stretch,
+                            Height = 3,
+                            MinHeight = 3,
+                            Foreground = Application.Current.FindResource("MahApps.Brushes.Accent") as Brush,
+                            BorderThickness = new Thickness(0),
+                            Background = System.Windows.Media.Brushes.Transparent,
+                            IsIndeterminate = false
+                        };
+                        var message = NotificationMessageBuilder()
+                            .HasMessage("Downloading update...")
+                            .WithOverlay(downloadingBar)
+                            .Queue();
 
+                        Log.Information($"Downloading update...");
+   
+                        await manager.PrepareUpdateAsync(result.LastVersion, new Progress<double>(
+                            p => downloadingBar.Value = p * 100)
+                        );
+                        _notificationMessageManager.Dismiss(message);
                         Log.Information($"Installing update...");
 
                         manager.LaunchUpdater(result.LastVersion);
 
                         // Terminate the running application so that the updater can overwrite files
                         Environment.Exit(0);
-                    }
+                    })
+                    .Dismiss().WithButton("Later", button => { })
+                    .Queue();
+
+
             }
+        }
+
+        private NotificationMessageBuilder NotificationMessageBuilder()
+        {
+            NotificationMessageBuilder messageBuilder = _notificationMessageManager.CreateMessage();
+            messageBuilder.SetForeground((Application.Current.FindResource("MahApps.Brushes.ThemeBackground") as Brush));
+            messageBuilder.SetBackground(Application.Current.FindResource("MahApps.Brushes.ThemeForeground") as Brush);
+            messageBuilder.SetAccent(Application.Current.FindResource("MahApps.Brushes.Accent") as Brush);
+            return messageBuilder;
         }
 
 

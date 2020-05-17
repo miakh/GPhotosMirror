@@ -12,6 +12,7 @@
                  FontFamily="{materialDesign:MaterialDesignFont}"
                  xmlns:ui="clr-namespace:GPhotosMirror.Output.UI"
                  xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+                 xmlns:controls="clr-namespace:Enterwell.Clients.Wpf.Notifications.Controls;assembly=Enterwell.Clients.Wpf.Notifications"
                  mc:Ignorable="d"
                  Title="GPhotosMirror" Height="450" Width="800"
                  d:DataContext="{d:DesignInstance gPhotosMirror:MainViewModel}"
@@ -96,19 +97,10 @@
             <TextBlock HorizontalAlignment="Right" Margin="0,12,12,0" Text="{Binding UserName}" TextWrapping="Wrap" VerticalAlignment="Top"/>
         </StackPanel>
 
-
         <ui:OutputView x:Name="OutputView" Grid.Row="1">
 
         </ui:OutputView >
-        <!--<avalonedit:TextEditor x:Name="outputText"
-                               FontFamily="Consolas"
-                               FontSize="10pt"
-                               IsReadOnly="True"
-                               SnapsToDevicePixels="True"
-                               UseLayoutRounding="True"
-                               Foreground="{DynamicResource MaterialDesignBody}"
-                               ContextMenu="{StaticResource TextBoxContextMenu}"
-                               Padding="15,10" Margin="0,5,0,0" Grid.Row="1">
-        </avalonedit:TextEditor>-->
+        <controls:NotificationMessageContainer Grid.Row="1" VerticalAlignment="Bottom" x:Name="NotificationMessageContainer" />
+
     </Grid>
 </mah:MetroWindow>
