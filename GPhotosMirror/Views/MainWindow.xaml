@@ -13,26 +13,25 @@
                  xmlns:ui="clr-namespace:GPhotosMirror.Output.UI"
                  xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
                  xmlns:controls="clr-namespace:Enterwell.Clients.Wpf.Notifications.Controls;assembly=Enterwell.Clients.Wpf.Notifications"
+                 xmlns:model="clr-namespace:GPhotosMirror.Model"
                  mc:Ignorable="d"
                  Title="GPhotosMirror" Height="450" Width="800"
-                 d:DataContext="{d:DesignInstance gPhotosMirror:MainViewModel}"
+                 d:DataContext="{d:DesignInstance model:MainViewModel}"
                  UseLayoutRounding="True"
                  TitleCharacterCasing="Normal"
                  HorizontalAlignment="Left"
                  Style="{DynamicResource MahApps.Styles.MetroWindow.VisualStudio}"
 >
-    <!--<mah:MetroWindow.WindowButtonCommands>
-        <mah:WindowButtonCommands Template="{DynamicResource MahApps.Metro.Templates.WindowButtonCommands.Clean.Win10}" />
-    </mah:MetroWindow.WindowButtonCommands>-->
+
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-        <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/vs/window.xaml" />
-        <!--<ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/clean/cleanwindow.xaml" />-->
+                <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/vs/window.xaml" />
+                <!--<ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/clean/cleanwindow.xaml" />-->
 
-</ResourceDictionary.MergedDictionaries>
-            </ResourceDictionary>
-        </Window.Resources>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
     <!--<mah:MetroWindow.WindowButtonCommands>
         <mah:WindowButtonCommands Style="{DynamicResource MahApps.Styles.WindowButtonCommands.Clean.Win10}" />
     </mah:MetroWindow.WindowButtonCommands>-->
@@ -44,7 +43,7 @@
     </ResourceDictionary>
         </Window.Resources>-->
 
-<Grid>
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="142"/>
             <RowDefinition Height="*"/>

@@ -8,6 +8,7 @@ using AsyncAwaitBestPractices;
 using Enterwell.Clients.Wpf.Notifications;
 using GPhotosMirror.AvalonEdit;
 using GPhotosMirror.AvalonEdit.Highlighting;
+using GPhotosMirror.Model;
 using GPhotosMirror.Output;
 using GPhotosMirror.Output.UI;
 using GPhotosMirror.Views;

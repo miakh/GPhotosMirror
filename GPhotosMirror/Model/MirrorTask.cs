@@ -9,27 +9,33 @@ using Priority_Queue;
 using PuppeteerSharp;
 using Serilog;
 
-namespace GPhotosMirror
+namespace GPhotosMirror.Model
 {
     public class MirrorTask : FastPriorityQueueNode
     {
-        protected readonly Page page;
         protected readonly LiteInstance _liteInstance;
+        protected readonly Page page;
 
         public MirrorTask(Page page, LiteInstance liteInstance)
         {
             this.page = page;
             _liteInstance = liteInstance;
         }
-        public async virtual Task Proceed(CancellationToken ct = default)
+
+        public virtual async Task Proceed(CancellationToken ct = default)
         {
-
         }
-
     }
 
-    public class OpenOrCreateAlbumTask:MirrorTask
+    public class OpenOrCreateAlbumTask : MirrorTask
     {
+        public OpenOrCreateAlbumTask(string localFolder, MirrorTaskExecutioner mTaskExecutioner, Page page,
+            LiteInstance liteInstance) : base(page, liteInstance)
+        {
+            LocalFolder = localFolder;
+            MTaskExecutioner = mTaskExecutioner;
+        }
+
         public string LocalFolder { get; }
         public MirrorTaskExecutioner MTaskExecutioner { get; }
 
@@ -53,8 +59,8 @@ namespace GPhotosMirror
             {
                 var createAlbumTask = new CreateAlbumTask(LocalFolder, page, _liteInstance);
                 var dirUp = _liteInstance.LiteDirectories.FindOne(d => d.LocalPath == LocalFolder);
-                
-                if(dirUp!=null)
+
+                if (dirUp != null)
                 {
                     var response = await page.GoToAsync(Constants.GOOGLE_PHOTOS_ALBUM_URL + dirUp.Link,
                         WaitUntilNavigation.Networkidle0);
@@ -64,6 +70,7 @@ namespace GPhotosMirror
                         _liteInstance.LiteDirectories.Upsert(dirUp);
                     }
                 }
+
                 if (dirUp?.Link == null)
                 {
                     if (!page.Url.Equals(Constants.GOOGLE_PHOTOS_URL_SEARCH))
@@ -72,7 +79,7 @@ namespace GPhotosMirror
                     }
 
                     var folderName = Path.GetFileName(LocalFolder);
-                    
+
                     //try to find or create album named like localParent
                     await page.Keyboard.PressAsync("/");
                     var searchFocused =
@@ -108,16 +115,16 @@ namespace GPhotosMirror
                         else
                         {
                             //album already exist
-                            var albumLink = 
-                            await page.EvaluateFunctionAsync("(t)=> t.getAttribute('data-album-media-key')",searchHints[clickIndex]);
-                            var stringLink =  albumLink.ToObject<string>();
+                            var albumLink =
+                                await page.EvaluateFunctionAsync("(t)=> t.getAttribute('data-album-media-key')",
+                                    searchHints[clickIndex]);
+                            var stringLink = albumLink.ToObject<string>();
                             var response = await page.GoToAsync(Constants.GOOGLE_PHOTOS_ALBUM_URL + stringLink,
                                 WaitUntilNavigation.Networkidle0);
-                            
                         }
                     }
                 }
-                
+
 
                 var uploadPhotos = new UploadPhotosTask(filesToGoUpList, LocalFolder, page, _liteInstance);
                 MTaskExecutioner.Enqueue(uploadPhotos);
@@ -130,32 +137,33 @@ namespace GPhotosMirror
                 MTaskExecutioner.Enqueue(newOpenCreate);
             }
         }
-        public OpenOrCreateAlbumTask(string localFolder, MirrorTaskExecutioner mTaskExecutioner, Page page, LiteInstance liteInstance) : base(page, liteInstance)
-        {
-            LocalFolder = localFolder;
-            MTaskExecutioner = mTaskExecutioner;
-        }
     }
 
-    public class CreateAlbumTask:MirrorTask
+    public class CreateAlbumTask : MirrorTask
     {
+        public CreateAlbumTask(string localFolder, Page page, LiteInstance liteInstance) : base(page, liteInstance) =>
+            LocalFolder = localFolder;
+
         public string LocalFolder { get; }
 
         public override async Task Proceed(CancellationToken ct = default)
         {
             await page.GoToAsync(Constants.GOOGLE_PHOTOS_URL);
-            var newButton = (await page.EvaluateExpressionAsync(
+            var newButton = await page.EvaluateExpressionAsync(
                 @"let newButton = function() {
                 let elem = document.querySelectorAll('.U26fgb.JRtysb.WzwrXb.YI2CVc.G6iPcb.m6aMje.ML2vC')[0];
                 elem.click();
             };
-            newButton();"));
+            newButton();");
             //new item menu
             //await page.WaitForSelectorAsync("DIV.JPdR6b.e5Emjc.s2VtY.qjTEB");
             var newAlbum = await page.WaitForSelectorAsync("DIV.JPdR6b.e5Emjc.s2VtY.qjTEB SPAN.z80M1.o7Osof.mDKoOe");
             //await page.WaitForTimeoutAsync(Constants.ShortTimeout);
             await newAlbum.PressAsync("Enter");
-            await page.WaitForNavigationAsync(new NavigationOptions() {WaitUntil = new []{WaitUntilNavigation.Networkidle0 } });
+            await page.WaitForNavigationAsync(new NavigationOptions()
+            {
+                WaitUntil = new[] {WaitUntilNavigation.Networkidle0}
+            });
 
             await page.WaitForSelectorAsync("TEXTAREA.ajQY2.v3oaBb");
             var textArea = await page.QuerySelectorAsync("TEXTAREA.ajQY2.v3oaBb");
@@ -169,10 +177,6 @@ namespace GPhotosMirror
             await page.WaitForSelectorAsync($"TEXTAREA.ajQY2.v3oaBb[initial-data-value=\"{localFolderName}\"]");
             Log.Information($"Created {localFolderName}");
         }
-        public CreateAlbumTask( string localFolder, Page page, LiteInstance liteInstance) : base(page, liteInstance)
-        {
-            LocalFolder = localFolder;
-        }
     }
 
     public class UploadPhotosTask : MirrorTask
@@ -180,10 +184,15 @@ namespace GPhotosMirror
         private readonly IEnumerable<string> _localFilesPaths;
         private readonly string _parent;
 
-        public long FileSize
+        public UploadPhotosTask(IEnumerable<string> localFilesPaths, string parent, Page page,
+            LiteInstance liteInstance) : base(page, liteInstance)
         {
-            get;
+            _localFilesPaths = localFilesPaths;
+            _parent = parent;
+            FileSize = localFilesPaths.Select(f => new FileInfo(f).Length).Sum();
         }
+
+        public long FileSize { get; }
 
         public override async Task Proceed(CancellationToken ct = default)
         {
@@ -194,7 +203,7 @@ namespace GPhotosMirror
             //2. add photos to album with at least one photo
 
             await page.WaitForSelectorAsync(".VfPpkd-LgbsSe.VfPpkd-LgbsSe-OWXEXe-k8QpJ.nCP5yc.AjY5Oe");
-            var addPhotoButton = (await page.EvaluateExpressionAsync(@"
+            var addPhotoButton = await page.EvaluateExpressionAsync(@"
             let addPhotos = function() {
             let elemArr = document.querySelectorAll('.VfPpkd-LgbsSe.VfPpkd-LgbsSe-OWXEXe-k8QpJ.nCP5yc.AjY5Oe');
             if (elemArr.length < 2) {
@@ -204,7 +213,7 @@ namespace GPhotosMirror
                 elemArr[elemArr.length - 1].click();
             }
             };
-            addPhotos();"));
+            addPhotos();");
             //await addPhotoButton.ClickAsync();
             await page.WaitForSelectorAsync(".VfPpkd-LgbsSe.ksBjEc.lKxP2d");
             var filesFromPC = await page.QuerySelectorAsync(".VfPpkd-LgbsSe.ksBjEc.lKxP2d");
@@ -218,7 +227,8 @@ namespace GPhotosMirror
             await page.WaitForSelectorAsync(".aHPraf.zPNfib", Constants.NoTimeoutOptions);
 
             var localFolderName = Path.GetFileName(_parent);
-            Log.Information($"Uploading {_localFilesPaths.Count()} files ({new ByteSize((double)FileSize)}) to {localFolderName}...");
+            Log.Information(
+                $"Uploading {_localFilesPaths.Count()} files ({new ByteSize((double)FileSize)}) to {localFolderName}...");
 
             //upload box hidden
             await page.WaitForSelectorAsync(".aHPraf.zPNfib", Constants.NoTimeoutOptionsHidden);
@@ -227,19 +237,13 @@ namespace GPhotosMirror
             if (errorBox == null)
             {
                 _liteInstance.FilesUp(_localFilesPaths, _parent);
-                Log.Information($"{_localFilesPaths.Count()} files ({new ByteSize((double)FileSize)}) uploaded to {localFolderName}.");
+                Log.Information(
+                    $"{_localFilesPaths.Count()} files ({new ByteSize((double)FileSize)}) uploaded to {localFolderName}.");
             }
             else
             {
                 Log.Error($"There was an error while uploading to {localFolderName}.");
             }
-        }
-
-        public UploadPhotosTask(IEnumerable<string> localFilesPaths, string parent, Page page, LiteInstance liteInstance) : base(page, liteInstance)
-        {
-            _localFilesPaths = localFilesPaths;
-            _parent = parent;
-            FileSize = localFilesPaths.Select(f=>new FileInfo(f).Length).Sum();
         }
     }
 }

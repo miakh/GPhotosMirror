@@ -10,7 +10,6 @@ namespace GPhotosMirror.Output
         void Append(string text);
         void LoadView(object view);
         void UnloadView();
-
         void Clear();
 
     }

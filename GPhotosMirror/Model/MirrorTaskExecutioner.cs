@@ -5,17 +5,29 @@ using System.Threading;
 using System.Threading.Tasks;
 using ByteSizeLib;
 using Priority_Queue;
+using PuppeteerSharp;
 using Serilog;
 
-namespace GPhotosMirror
+namespace GPhotosMirror.Model
 {
-    public class MirrorTaskExecutioner:INotifyPropertyChanged
+    public class MirrorTaskExecutioner : INotifyPropertyChanged
     {
-        private SimplePriorityQueue<MirrorTask, int> MirrorTasks = new SimplePriorityQueue<MirrorTask, int>();
         private bool _isExecuting;
+        private bool _isStoppingExecution;
+        private Func<Task> _startAction;
+        private long AllBytesUpload;
+
+        private int AllFilesUpload;
+
+        private CancellationTokenSource cancellationTokenSource;
+        public Func<Task> EndingAction;
+        private readonly SimplePriorityQueue<MirrorTask, int> MirrorTasks = new SimplePriorityQueue<MirrorTask, int>();
+        private long RemainingBytesUpload;
+        private int RemainingFilesUpload;
 
         public bool IsExecuteButtonShowing => !IsExecuting || IsStoppingExecution;
-        public bool IsExecuteButtonEnabled => this.StartAction!=null && !IsStoppingExecution;
+        public bool IsExecuteButtonEnabled => StartAction != null && !IsStoppingExecution;
+
         public bool IsExecuting
         {
             get => _isExecuting;
@@ -26,6 +38,44 @@ namespace GPhotosMirror
                 OnPropertyChanged(nameof(IsExecuteButtonShowing));
             }
         }
+
+        public string ProgressPretty
+        {
+            get
+            {
+                if (AllFilesUpload == 0)
+                {
+                    return "";
+                }
+
+                //use double in constructor to get byte size instead of bite size
+                return
+                    $"Uploaded {AllFilesUpload - RemainingFilesUpload} files ({new ByteSize((double)AllBytesUpload - RemainingBytesUpload)})";
+            }
+        }
+
+        public bool IsStoppingExecution
+        {
+            get => _isStoppingExecution;
+            set
+            {
+                _isStoppingExecution = value;
+                OnPropertyChanged(nameof(IsExecuteButtonEnabled));
+                OnPropertyChanged(nameof(IsExecuteButtonShowing));
+            }
+        }
+
+        public Func<Task> StartAction
+        {
+            get => _startAction;
+            set
+            {
+                _startAction = value;
+                OnPropertyChanged(nameof(IsExecuteButtonEnabled));
+            }
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
 
         public void PreExecute()
         {
@@ -42,9 +92,9 @@ namespace GPhotosMirror
             RemainingFilesUpload = AllFilesUpload;
             RefreshProgress();
         }
+
         public async Task Execute()
         {
-
             IsExecuting = true;
             Log.Information("Uploading process has started.");
             cancellationTokenSource = new CancellationTokenSource();
@@ -52,6 +102,7 @@ namespace GPhotosMirror
             {
                 await StartAction?.Invoke();
             }
+
             try
             {
                 PreExecute();
@@ -69,10 +120,10 @@ namespace GPhotosMirror
                 }
             }
 
-            catch (PuppeteerSharp.PuppeteerException e)
+            catch (PuppeteerException e)
             {
-                if (e is PuppeteerSharp.TargetClosedException || e is PuppeteerSharp.NavigationException
-                                                              || e is PuppeteerSharp.ChromiumProcessException)
+                if (e is TargetClosedException || e is NavigationException
+                                               || e is ChromiumProcessException)
                 {
                     //stop action
                     Log.Information("You have stopped the uploading process.");
@@ -96,50 +147,12 @@ namespace GPhotosMirror
             {
                 Log.Information($"Uploaded {AllFilesUpload} files ({new ByteSize(AllBytesUpload)}).");
             }
+
             await StopExecution();
         }
 
-        private void RefreshProgress()
-        {
-            OnPropertyChanged(nameof(ProgressPretty));
-        }
+        private void RefreshProgress() => OnPropertyChanged(nameof(ProgressPretty));
 
-        public string ProgressPretty
-        {
-            get
-            {
-                if (AllFilesUpload == 0)
-                {
-                    return "";
-                }
-                //use double in constructor to get byte size instead of bite size
-                return $"Uploaded {AllFilesUpload - RemainingFilesUpload} files ({new ByteSize((double)AllBytesUpload- RemainingBytesUpload)})";
-            }
-        }
-
-        public bool IsStoppingExecution
-        {
-            get => _isStoppingExecution;
-            set
-            {
-                _isStoppingExecution = value;
-                OnPropertyChanged(nameof(IsExecuteButtonEnabled));
-                OnPropertyChanged(nameof(IsExecuteButtonShowing));
-            }
-        }
-
-        public Func<Task> StartAction
-        {
-            get => _startAction;
-            set
-            {
-                _startAction = value;
-                OnPropertyChanged(nameof(IsExecuteButtonEnabled));
-
-            }
-        }
-
-        private CancellationTokenSource cancellationTokenSource;
         public async Task StopExecution()
         {
             IsStoppingExecution = true;
@@ -147,19 +160,12 @@ namespace GPhotosMirror
             {
                 await EndingAction?.Invoke();
             }
-            this.MirrorTasks.Clear();
+
+            MirrorTasks.Clear();
             cancellationTokenSource.Cancel();
             IsStoppingExecution = false;
             IsExecuting = false;
         }
-
-        private int AllFilesUpload;
-        private int RemainingFilesUpload;
-        private long AllBytesUpload;
-        private long RemainingBytesUpload;
-        public Func<Task> EndingAction;
-        private bool _isStoppingExecution;
-        private Func<Task> _startAction;
 
         public void Enqueue(MirrorTask mt)
         {
@@ -173,17 +179,10 @@ namespace GPhotosMirror
             }
         }
 
-        public MirrorTask Dequeue()
-        {
-            return MirrorTasks.Dequeue();
-        }
-
-        public event PropertyChangedEventHandler PropertyChanged;
+        public MirrorTask Dequeue() => MirrorTasks.Dequeue();
 
         [NotifyPropertyChangedInvocator]
-        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
-        {
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        }
     }
 }

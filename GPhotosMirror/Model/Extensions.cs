@@ -2,7 +2,7 @@
 using System.IO;
 using System.Linq;
 
-namespace GPhotosMirror
+namespace GPhotosMirror.Model
 {
     public static class Extensions
     {

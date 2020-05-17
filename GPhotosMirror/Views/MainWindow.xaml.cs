@@ -1,6 +1,7 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
 using Enterwell.Clients.Wpf.Notifications;
+using GPhotosMirror.Model;
 using GPhotosMirror.Output;
 using GPhotosMirror.Output.UI;
 using MahApps.Metro.Controls;

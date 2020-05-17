@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace GPhotosMirror
+namespace GPhotosMirror.Model
 {
     public class LiteFile
     {
