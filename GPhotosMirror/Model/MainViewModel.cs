@@ -209,6 +209,12 @@ namespace GPhotosMirror.Model
 
                         manager.LaunchUpdater(result.LastVersion);
 
+                        // Close browser
+                        if (Browser != null)
+                        {
+                            await Browser.Close();
+                        }
+
                         // Terminate the running application so that the updater can overwrite files
                         Environment.Exit(0);
                     })
