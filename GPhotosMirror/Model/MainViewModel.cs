@@ -36,8 +36,9 @@ namespace GPhotosMirror.Model
 
         private string _userName;
 
-        public MainViewModel(NotificationMessageManager notificationMessageManager)
+        public MainViewModel(NotificationMessageManager notificationMessageManager, BrowserInstance browserInstance)
         {
+            Browser = browserInstance;
             _notificationMessageManager = notificationMessageManager;
             TScheduler = TaskScheduler.FromCurrentSynchronizationContext();
             Initialize();
@@ -56,16 +57,7 @@ namespace GPhotosMirror.Model
         }
 
 
-        private string UserDataDirPath
-        {
-            get
-            {
-                string userPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-                string dataDirPath = "AppData\\Local\\GDriveMirror\\User Data";
-                string userDataDirPath = Path.Combine(userPath, dataDirPath);
-                return userDataDirPath;
-            }
-        }
+        
 
         public MirrorTaskExecutioner MTE { get; set; } = new MirrorTaskExecutioner();
 
@@ -235,7 +227,7 @@ namespace GPhotosMirror.Model
         public void Logout()
         {
             // Deletes cached users cookies
-            Directory.Delete(UserDataDirPath, true);
+            Directory.Delete(Browser.UserDataDirPath, true);
             IsSignedIn = false;
             NotifyPropertyChanged(nameof(UserName));
             Log.Information($"Now you are signed out.");
@@ -275,7 +267,6 @@ namespace GPhotosMirror.Model
 
             try
             {
-                Browser = new BrowserInstance(UserDataDirPath);
                 await Browser.LaunchIfClosed();
                 //using current Chrome
                 //await using var Browser = await Puppeteer.ConnectAsync(new ConnectOptions(){ BrowserURL = "http://127.0.0.1:9222", DefaultViewport = new ViewPortOptions(){Height = 800, Width = 1000}});

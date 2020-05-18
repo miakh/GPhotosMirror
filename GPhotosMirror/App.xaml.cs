@@ -51,6 +51,7 @@ namespace GPhotosMirror
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddSingleton<MainViewModel>();
             serviceCollection.AddSingleton<MainWindow>();
+            serviceCollection.AddSingleton<BrowserInstance>();
 
             var applicationOutput = new Output.UI.Output("Application");
             var puppeteerOutput = new Output.UI.Output("Puppeteer");

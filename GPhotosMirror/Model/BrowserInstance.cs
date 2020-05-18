@@ -12,13 +12,16 @@ namespace GPhotosMirror.Model
     {
         public Browser CurrentBrowser;
         public Page CurrentPage;
-        private string UserDataDirPath { get; }
-
-        public BrowserInstance(string UserDataDirPath)
+        public string UserDataDirPath
         {
-            this.UserDataDirPath = UserDataDirPath;
+            get
+            {
+                string userPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                string dataDirPath = "AppData\\Local\\GDriveMirror\\User Data";
+                string userDataDirPath = Path.Combine(userPath, dataDirPath);
+                return userDataDirPath;
+            }
         }
-
         public async Task Close()
         {
             if (CurrentBrowser == null)
