@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Win32;
 using PuppeteerSharp;
 using ErrorEventArgs = PuppeteerSharp.ErrorEventArgs;
 
@@ -24,8 +25,6 @@ namespace GPhotosMirror.Model
             {
                 return;
             }
-            await CurrentPage.CloseAsync();
-            await CurrentBrowser.CloseAsync();
 
             // remove Methods on actions
             CurrentPage.FrameNavigated -= OnCurrentPageOnFrameNavigated;
@@ -38,6 +37,9 @@ namespace GPhotosMirror.Model
             CurrentPage.Dialog -= OnCurrentPageOnDialog;
             CurrentBrowser.Closed -= OnCurrentBrowserOnClosed;
 
+            await CurrentPage.CloseAsync();
+            await CurrentBrowser.CloseAsync();
+
             await CurrentPage.DisposeAsync();
             CurrentPage = null;
             await CurrentBrowser.DisposeAsync();
@@ -48,16 +50,34 @@ namespace GPhotosMirror.Model
         {
             if (this.CurrentBrowser == null)
             {
-                var executable = "Google\\Chrome\\Application\\chrome.exe";
-                var programfiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
-                var executableLocalPath = Path.Combine(programfiles, executable);
-                if (!System.IO.File.Exists(executableLocalPath))
+                // try get chrome path from registers
+                string pathFromRegisters = null;
+                using (RegistryKey key = Registry.LocalMachine.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\chrome.exe"))
+                {
+                    Object o = key?.GetValue("Path");
+                    if (o != null)
+                    {
+                        pathFromRegisters = (o as string) + "\\chrome.exe"; 
+                    }
+                }
+
+                var executableLocalPath = pathFromRegisters;
+
+                // try other option
+                if (!File.Exists(executableLocalPath))
+                {
+                    var executable = "Google\\Chrome\\Application\\chrome.exe";
+                    var programfiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+                    executableLocalPath = Path.Combine(programfiles, executable);
+                }
+
+
+                if (!File.Exists(executableLocalPath))
                 {
                     await new BrowserFetcher().DownloadAsync(BrowserFetcher.DefaultRevision);
                     executableLocalPath = null;
                 }
 
-                //close your browser if exception
                 //or start bundled
 
                 CurrentBrowser = await Puppeteer.LaunchAsync(new LaunchOptions
