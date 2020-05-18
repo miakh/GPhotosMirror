@@ -68,7 +68,7 @@ namespace GPhotosMirror
             puppeteerLog.WriteTo.OutputModule(() => puppeteerOutput);
             Logger puppeteerLogger = puppeteerLog.CreateLogger();
             serviceCollection.AddSingleton(puppeteerLogger);
-            serviceCollection.AddSingleton<NotificationMessageManager>();
+            serviceCollection.AddSingleton<GPhotosNotifications>();
             serviceCollection.AddSingleton<IOutputLogFilter, SettingsOutputLogFilter>();
             serviceCollection.AddSingleton<IHighlightingProvider, LogHighlightingProvider>();
             return serviceCollection.BuildServiceProvider();

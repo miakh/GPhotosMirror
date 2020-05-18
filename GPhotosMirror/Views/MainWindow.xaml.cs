@@ -14,11 +14,14 @@ namespace GPhotosMirror.Views
     /// </summary>
     public partial class MainWindow : MetroWindow
     {
+        private MainViewModel _mainViewModel;
+
         public MainWindow(MainViewModel mainViewModel)
         {
             InitializeComponent();
-
-            this.DataContext = mainViewModel;
+            _mainViewModel = mainViewModel;
+            this.DataContext = _mainViewModel;
+            this.Loaded += OneTimeLoaded;
             var outputViewModel = (OutputViewModel)App.Services.GetService<OutputViewModel>();
             //var outputView = (OutputView)App.Services.GetService<IOutputView>();
             //mainGrid.Children.Add(outputView);
@@ -28,7 +31,13 @@ namespace GPhotosMirror.Views
             OutputView.DataContext = outputViewModel;
             outputViewModel.OnViewLoaded(OutputView);
 
-            NotificationMessageContainer.Manager = App.Services.GetService<NotificationMessageManager>();
+            NotificationMessageContainer.Manager = App.Services.GetService<GPhotosNotifications>();
+        }
+
+        private void OneTimeLoaded(object sender, RoutedEventArgs e)
+        {
+            _mainViewModel.ViewModelLoaded();
+            this.Loaded -= OneTimeLoaded;
         }
     }
 }

@@ -5,13 +5,10 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
 using System.Windows.Input;
-using System.Windows.Media;
 using AsyncAwaitBestPractices;
 using Enterwell.Clients.Wpf.Notifications;
 using GalaSoft.MvvmLight.Command;
-using MahApps.Metro.Controls;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using Onova;
 using Onova.Models;
@@ -23,7 +20,7 @@ namespace GPhotosMirror.Model
 {
     public class MainViewModel : INotifyPropertyChanged
     {
-        private readonly NotificationMessageManager _notificationMessageManager;
+        private readonly GPhotosNotifications _notificationMessageManager;
         private ICommand _changePath;
         private RelayCommand _executeCommand;
         private bool _isSignedIn;
@@ -36,14 +33,17 @@ namespace GPhotosMirror.Model
 
         private string _userName;
 
-        public MainViewModel(NotificationMessageManager notificationMessageManager, BrowserInstance browserInstance)
+        public MainViewModel(GPhotosNotifications notificationMessageManager, BrowserInstance browserInstance)
         {
             Browser = browserInstance;
             _notificationMessageManager = notificationMessageManager;
             TScheduler = TaskScheduler.FromCurrentSynchronizationContext();
-            Initialize();
         }
 
+        public void ViewModelLoaded()
+        {
+            Initialize();
+        }
         private TaskScheduler TScheduler { get; }
 
         public string LocalRoot
@@ -55,9 +55,6 @@ namespace GPhotosMirror.Model
                 NotifyPropertyChanged();
             }
         }
-
-
-        
 
         public MirrorTaskExecutioner MTE { get; set; } = new MirrorTaskExecutioner();
 
@@ -168,25 +165,17 @@ namespace GPhotosMirror.Model
             CheckForUpdatesResult result = await manager.CheckForUpdatesAsync();
             if (result.CanUpdate)
             {
-                NotificationMessageBuilder()
+                _notificationMessageManager
+                    .NotificationMessageBuilder()
                     .Animates(true)
                     .AnimationInDuration(0.5)
                     .AnimationOutDuration(0)
                     .HasMessage($"New version is available ({result.LastVersion}).")
                     .Dismiss().WithButton("Update now", async button =>
                     {
-                        MetroProgressBar downloadingBar = new MetroProgressBar()
-                        {
-                            VerticalAlignment = VerticalAlignment.Bottom,
-                            HorizontalAlignment = HorizontalAlignment.Stretch,
-                            Height = 3,
-                            MinHeight = 3,
-                            Foreground = Application.Current.FindResource("MahApps.Brushes.Accent") as Brush,
-                            BorderThickness = new Thickness(0),
-                            Background = Brushes.Transparent,
-                            IsIndeterminate = false
-                        };
-                        INotificationMessage message = NotificationMessageBuilder()
+                        var downloadingBar = _notificationMessageManager.DownloadingBar;
+                        INotificationMessage message = _notificationMessageManager
+                            .NotificationMessageBuilder()
                             .HasMessage("Downloading update...")
                             .WithOverlay(downloadingBar)
                             .Queue();
@@ -213,15 +202,6 @@ namespace GPhotosMirror.Model
                     .Dismiss().WithButton("Later", button => { })
                     .Queue();
             }
-        }
-
-        private NotificationMessageBuilder NotificationMessageBuilder()
-        {
-            NotificationMessageBuilder messageBuilder = _notificationMessageManager.CreateMessage();
-            messageBuilder.SetForeground(Application.Current.FindResource("MahApps.Brushes.ThemeBackground") as Brush);
-            messageBuilder.SetBackground(Application.Current.FindResource("MahApps.Brushes.ThemeForeground") as Brush);
-            messageBuilder.SetAccent(Application.Current.FindResource("MahApps.Brushes.Accent") as Brush);
-            return messageBuilder;
         }
 
         public void Logout()
