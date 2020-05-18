@@ -44,7 +44,7 @@ namespace GPhotosMirror
         }
         public IServiceProvider Container { get; private set; }
         public static IServiceProvider Services => ((App)Current).Container;
-        public static Logger PuppeteerLogger => Services.GetService<Logger>();
+        public static Logger PuppeteerLogger => Services?.GetService<Logger>();
 
         private IServiceProvider RegisterServices()
         {

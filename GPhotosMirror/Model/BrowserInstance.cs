@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using PuppeteerSharp;
+using ErrorEventArgs = PuppeteerSharp.ErrorEventArgs;
 
 namespace GPhotosMirror.Model
 {
@@ -25,6 +26,18 @@ namespace GPhotosMirror.Model
             }
             await CurrentPage.CloseAsync();
             await CurrentBrowser.CloseAsync();
+
+            // remove Methods on actions
+            CurrentPage.FrameNavigated -= OnCurrentPageOnFrameNavigated;
+            CurrentPage.Load -= OnCurrentPageOnLoad;
+            CurrentPage.Error -= OnCurrentPageOnError;
+            CurrentPage.DOMContentLoaded -= OnCurrentPageOnDomContentLoaded;
+            CurrentPage.RequestFailed -= OnCurrentPageOnRequestFailed;
+            CurrentPage.Close -= OnCurrentPageOnClose;
+            CurrentPage.PageError -= OnCurrentPageOnPageError;
+            CurrentPage.Dialog -= OnCurrentPageOnDialog;
+            CurrentBrowser.Closed -= OnCurrentBrowserOnClosed;
+
             await CurrentPage.DisposeAsync();
             CurrentPage = null;
             await CurrentBrowser.DisposeAsync();
@@ -71,42 +84,15 @@ namespace GPhotosMirror.Model
                 }
 
                 // configure Logger
-                CurrentPage.FrameNavigated += (sender, args) =>
-                {
-                    App.PuppeteerLogger.Information($"Navigated to {args.Frame.Url}");
-                };
-                CurrentPage.Load += (sender, args) =>
-                {
-                    App.PuppeteerLogger.Information($"Loaded {CurrentPage.Url}");
-                };
-                CurrentPage.Error += (sender, args) =>
-                {
-                    App.PuppeteerLogger.Error($"{args.Error}");
-                };
-                CurrentPage.DOMContentLoaded += (sender, args) =>
-                {
-                    App.PuppeteerLogger.Information($"DOMLoaded {CurrentPage.Url}");
-                };
-                CurrentPage.RequestFailed += (sender, args) =>
-                {
-                    App.PuppeteerLogger.Error($"{args.Request.Method.Method} {args.Request.Url}");
-                };
-                CurrentPage.Close += (sender, args) =>
-                {
-                    App.PuppeteerLogger.Information($"Page closed.");
-                };
-                CurrentPage.PageError += (sender, args) =>
-                {
-                    App.PuppeteerLogger.Error($"PageError {args.Message}");
-                };
-                CurrentPage.Dialog += (sender, args) =>
-                {
-                    App.PuppeteerLogger.Information($"{args.Dialog.DialogType} {args.Dialog.Message}");
-                };
-                CurrentBrowser.Closed += (sender, args) =>
-                {
-                    App.PuppeteerLogger.Information($"Browser closed.");
-                };
+                CurrentPage.FrameNavigated += OnCurrentPageOnFrameNavigated;
+                CurrentPage.Load += OnCurrentPageOnLoad;
+                CurrentPage.Error += OnCurrentPageOnError;
+                CurrentPage.DOMContentLoaded += OnCurrentPageOnDomContentLoaded;
+                CurrentPage.RequestFailed += OnCurrentPageOnRequestFailed;
+                CurrentPage.Close += OnCurrentPageOnClose;
+                CurrentPage.PageError += OnCurrentPageOnPageError;
+                CurrentPage.Dialog += OnCurrentPageOnDialog;
+                CurrentBrowser.Closed += OnCurrentBrowserOnClosed;
 
                 //CurrentPage.Request += (sender, args) =>
                 //{
@@ -119,6 +105,51 @@ namespace GPhotosMirror.Model
                 //await CurrentPage.SetViewportAsync();
             }
 
+        }
+
+        private void OnCurrentBrowserOnClosed(object? sender, EventArgs args)
+        {
+            App.PuppeteerLogger.Information($"Browser closed.");
+        }
+
+        private void OnCurrentPageOnDialog(object? sender, DialogEventArgs args)
+        {
+            App.PuppeteerLogger.Information($"{args.Dialog.DialogType} {args.Dialog.Message}");
+        }
+
+        private void OnCurrentPageOnPageError(object? sender, PageErrorEventArgs args)
+        {
+            App.PuppeteerLogger.Error($"PageError {args.Message}");
+        }
+
+        private void OnCurrentPageOnClose(object? sender, EventArgs args)
+        {
+            App.PuppeteerLogger.Information($"Page closed.");
+        }
+
+        private void OnCurrentPageOnRequestFailed(object? sender, RequestEventArgs args)
+        {
+            App.PuppeteerLogger.Error($"{args.Request.Method.Method} {args.Request.Url}");
+        }
+
+        private void OnCurrentPageOnDomContentLoaded(object? sender, EventArgs args)
+        {
+            App.PuppeteerLogger.Information($"DOMLoaded {CurrentPage.Url}");
+        }
+
+        private void OnCurrentPageOnError(object? sender, ErrorEventArgs args)
+        {
+            App.PuppeteerLogger.Error($"{args.Error}");
+        }
+
+        private void OnCurrentPageOnLoad(object? sender, EventArgs args)
+        {
+            App.PuppeteerLogger.Information($"Loaded {CurrentPage.Url}");
+        }
+
+        private void OnCurrentPageOnFrameNavigated(object? sender, FrameEventArgs args)
+        {
+            App.PuppeteerLogger.Information($"Navigated to {args.Frame.Url}");
         }
     }
 }
