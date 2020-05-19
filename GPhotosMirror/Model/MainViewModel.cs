@@ -36,6 +36,11 @@ namespace GPhotosMirror.Model
                     UserSettings.Default.Save();
                 }
 
+                if (!value)
+                {
+                    UserName = "";
+                }
+
                 OnPropertyChanged();
             }
         }
