@@ -9,6 +9,7 @@ using Enterwell.Clients.Wpf.Notifications;
 using GPhotosMirror.AvalonEdit;
 using GPhotosMirror.AvalonEdit.Highlighting;
 using GPhotosMirror.Model;
+using GPhotosMirror.Model.Browsers;
 using GPhotosMirror.Output;
 using GPhotosMirror.Output.UI;
 using GPhotosMirror.Views;
@@ -71,6 +72,12 @@ namespace GPhotosMirror
             serviceCollection.AddSingleton<GPhotosNotifications>();
             serviceCollection.AddSingleton<IOutputLogFilter, SettingsOutputLogFilter>();
             serviceCollection.AddSingleton<IHighlightingProvider, LogHighlightingProvider>();
+
+            // Browsers
+            serviceCollection.AddSingleton<ILocalBrowser, Chrome>();
+            serviceCollection.AddSingleton<ILocalBrowser, MSEdge>();
+            serviceCollection.AddSingleton<ILocalBrowser, BundledChromium>();
+
             return serviceCollection.BuildServiceProvider();
         }
 

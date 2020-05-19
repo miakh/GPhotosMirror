@@ -15,6 +15,7 @@ namespace GPhotosMirror
             ".raf", ".raw", ".rdc", ".rw2", ".sr2", ".srf", ".x3f"
         };
 
+        public const int PuppeteerMinimalVersion = 59;
         public const string LITE_FILE = "LiteFile";
         public const string LITE_DIRECTORY = "LiteDirectory";
 

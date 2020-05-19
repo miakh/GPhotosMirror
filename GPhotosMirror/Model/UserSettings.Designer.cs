@@ -46,5 +46,17 @@ namespace GPhotosMirror.Model {
                 this["WasSignedIn"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string UsedBrowser {
+            get {
+                return ((string)(this["UsedBrowser"]));
+            }
+            set {
+                this["UsedBrowser"] = value;
+            }
+        }
     }
 }

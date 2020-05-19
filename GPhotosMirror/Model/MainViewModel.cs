@@ -207,7 +207,7 @@ namespace GPhotosMirror.Model
         public void Logout()
         {
             // Deletes cached users cookies
-            Directory.Delete(Browser.UserDataDirPath, true);
+            Browser.DeleteUserData();
             IsSignedIn = false;
             NotifyPropertyChanged(nameof(UserName));
             Log.Information($"Now you are signed out.");
@@ -252,19 +252,19 @@ namespace GPhotosMirror.Model
                 //await using var Browser = await Puppeteer.ConnectAsync(new ConnectOptions(){ BrowserURL = "http://127.0.0.1:9222", DefaultViewport = new ViewPortOptions(){Height = 800, Width = 1000}});
                 //await using var page = await Browser.NewPageAsync();
 
-                await Browser.CurrentPage.GoToAsync(Constants.GOOGLE_PHOTOS_URL, WaitUntilNavigation.Networkidle0);
+                await Browser.CurrentPageInstance.GoToAsync(Constants.GOOGLE_PHOTOS_URL, WaitUntilNavigation.Networkidle0);
                 while (true)
                 {
-                    if (Browser.CurrentPage.Url.Contains(Constants.GOOGLE_PHOTOS_URL))
+                    if (Browser.CurrentPageInstance.Url.Contains(Constants.GOOGLE_PHOTOS_URL))
                     {
                         break;
                     }
 
                     //wait for login
-                    await Browser.CurrentPage.WaitForNavigationAsync();
+                    await Browser.CurrentPageInstance.WaitForNavigationAsync();
                 }
 
-                UserName = (await Browser.CurrentPage.EvaluateExpressionAsync(
+                UserName = (await Browser.CurrentPageInstance.EvaluateExpressionAsync(
                     @"let username = function() {
                             let elem = document.querySelectorAll('.gb_pe div');
                             let userMail = elem[elem.length-1].innerText;
@@ -281,7 +281,7 @@ namespace GPhotosMirror.Model
                 MTE.StartAction = async () =>
                 {
                     await Browser.LaunchIfClosed();
-                    Page page = Browser.CurrentPage;
+                    Page page = Browser.CurrentPageInstance;
                     OpenOrCreateAlbumTask rootOpenCreate = new OpenOrCreateAlbumTask(LocalRoot, MTE, page, liteDB);
                     MTE.Enqueue(rootOpenCreate);
                 };

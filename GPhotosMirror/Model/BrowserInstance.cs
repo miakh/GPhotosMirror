@@ -1,223 +1,170 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Threading.Tasks;
-using System.Windows;
-using ByteSizeLib;
-using Enterwell.Clients.Wpf.Notifications;
-using Microsoft.Win32;
+using GPhotosMirror.Model.Browsers;
 using PuppeteerSharp;
-using Serilog;
 using ErrorEventArgs = PuppeteerSharp.ErrorEventArgs;
 
 namespace GPhotosMirror.Model
 {
     public class BrowserInstance
     {
-        private readonly GPhotosNotifications _notificationMessageManager;
-        public Browser CurrentBrowser;
-        public Page CurrentPage;
-        public string UserDataDirPath
-        {
-            get
-            {
-                string userPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-                string dataDirPath = "AppData\\Local\\GDriveMirror\\User Data";
-                string userDataDirPath = Path.Combine(userPath, dataDirPath);
-                return userDataDirPath;
-            }
-        }
+        private readonly List<ILocalBrowser> _localBrowsers;
+        public Browser CurrentBrowserInstance;
+        public Page CurrentPageInstance;
 
-        public BrowserInstance(GPhotosNotifications notificationMessageManager)
+        public BrowserInstance(IEnumerable<ILocalBrowser> localBrowsers) => _localBrowsers = localBrowsers.ToList();
+
+        public string UserDataDirPath(string browserId)
         {
-            _notificationMessageManager = notificationMessageManager;
+            string userPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            string dataDirPath = $"AppData\\Local\\GDriveMirror\\User Data\\{browserId}";
+            string userDataDirPath = Path.Combine(userPath, dataDirPath);
+            return userDataDirPath;
         }
 
         public async Task Close()
         {
-            if (CurrentBrowser == null)
+            if (CurrentBrowserInstance == null)
             {
                 return;
             }
 
             // remove Methods on actions
-            CurrentPage.FrameNavigated -= OnCurrentPageOnFrameNavigated;
-            CurrentPage.Load -= OnCurrentPageOnLoad;
-            CurrentPage.Error -= OnCurrentPageOnError;
-            CurrentPage.DOMContentLoaded -= OnCurrentPageOnDomContentLoaded;
-            CurrentPage.RequestFailed -= OnCurrentPageOnRequestFailed;
-            CurrentPage.Close -= OnCurrentPageOnClose;
-            CurrentPage.PageError -= OnCurrentPageOnPageError;
-            CurrentPage.Dialog -= OnCurrentPageOnDialog;
-            CurrentBrowser.Closed -= OnCurrentBrowserOnClosed;
+            CurrentPageInstance.FrameNavigated -= OnCurrentPageInstanceOnFrameNavigated;
+            CurrentPageInstance.Load -= OnCurrentPageInstanceOnLoad;
+            CurrentPageInstance.Error -= OnCurrentPageInstanceOnError;
+            CurrentPageInstance.DOMContentLoaded -= OnCurrentPageInstanceOnDomContentLoaded;
+            CurrentPageInstance.RequestFailed -= OnCurrentPageInstanceOnRequestFailed;
+            CurrentPageInstance.Close -= OnCurrentPageInstanceOnClose;
+            CurrentPageInstance.PageError -= OnCurrentPageInstanceOnPageInstanceError;
+            CurrentPageInstance.Dialog -= OnCurrentPageInstanceOnDialog;
+            CurrentBrowserInstance.Closed -= OnCurrentBrowserInstanceOnClosed;
 
-            await CurrentPage.CloseAsync();
-            await CurrentBrowser.CloseAsync();
+            await CurrentPageInstance.CloseAsync();
+            await CurrentBrowserInstance.CloseAsync();
 
-            await CurrentPage.DisposeAsync();
-            CurrentPage = null;
-            await CurrentBrowser.DisposeAsync();
-            CurrentBrowser = null;
+            await CurrentPageInstance.DisposeAsync();
+            CurrentPageInstance = null;
+            await CurrentBrowserInstance.DisposeAsync();
+            CurrentBrowserInstance = null;
         }
 
         public async Task LaunchIfClosed()
         {
-            if (this.CurrentBrowser == null)
+            if (CurrentBrowserInstance == null)
             {
-                // try get chrome path from registers
-                string pathFromRegisters = null;
-                using (RegistryKey key = Registry.LocalMachine.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\chrome.exe"))
+                string executableLocalPath = null;
+                string userDataDirPath = null;
+
+
+                // prioritize last used browser
+                var useBrowser = _localBrowsers.FirstOrDefault(b => b.BrowserID == UserSettings.Default.UsedBrowser);
+                if (useBrowser != null)
                 {
-                    Object o = key?.GetValue("Path");
-                    if (o != null)
+                    _localBrowsers.Remove(useBrowser);
+                    _localBrowsers.Insert(0, useBrowser);
+                }
+
+                foreach (ILocalBrowser localBrowser in _localBrowsers)
+                {
+                    executableLocalPath = await localBrowser.GetExecutable();
+                    if (executableLocalPath == null)
                     {
-                        pathFromRegisters = (o as string) + "\\chrome.exe"; 
+                        continue;
                     }
+
+                    userDataDirPath = UserDataDirPath(localBrowser.BrowserID);
+                    UserSettings.Default.UsedBrowser = localBrowser.BrowserID;
+                    UserSettings.Default.Save();
+                    break;
                 }
 
-                var executableLocalPath = pathFromRegisters;
-
-                // try other option
-                if (!File.Exists(executableLocalPath))
-                {
-                    var executable = "Google\\Chrome\\Application\\chrome.exe";
-                    var programfiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
-                    executableLocalPath = Path.Combine(programfiles, executable);
-                }
-
-                // try get executable of bundled
-                if (!File.Exists(executableLocalPath))
-                {
-                    executableLocalPath = Puppeteer.GetExecutablePath();
-                }
-
-                // Download bundled Chromium
-                if (!File.Exists(executableLocalPath))
-                {
-                    var downloadingBar = _notificationMessageManager.DownloadingBar;
-                    
-                    var fetcher = new BrowserFetcher();
-                    var p = fetcher.DownloadsFolder;
-                    var messageBuilder = _notificationMessageManager
-                        .NotificationMessageBuilder()
-                        .Animates(true)
-                        .AnimationInDuration(0.5)
-                        .AnimationOutDuration(0)
-                        .HasMessage($"Downloading Chromium...")
-                        .WithOverlay(downloadingBar);
-                    Action<object, DownloadProgressChangedEventArgs> GetDownloadSize = null;
-                    GetDownloadSize = ((o, args) =>
-                    {
-                        messageBuilder.HasMessage(
-                            $"Downloading Chromium ({new ByteSize((double)args.TotalBytesToReceive)})...");
-                        Log.Information(
-                            $"Chromium not found. Downloading Chromium ({new ByteSize((double)args.TotalBytesToReceive)})...");
-                        GetDownloadSize = null;
-                    });
-
-                    fetcher.DownloadProgressChanged += (sender, args) =>
-                    {
-                        downloadingBar.Value = (double)args.BytesReceived/args.TotalBytesToReceive*100;
-                        GetDownloadSize?.Invoke(sender, args);
-                    };
-                    INotificationMessage message = messageBuilder.Queue();
-                    await fetcher.DownloadAsync(BrowserFetcher.DefaultRevision);
-                    _notificationMessageManager.Dismiss(message);
-                    Log.Information($"Chromium Downloaded.");
-                    executableLocalPath = Puppeteer.GetExecutablePath();
-                }
-
-                CurrentBrowser = await Puppeteer.LaunchAsync(new LaunchOptions
-                {
-                    Headless = false,
-                    UserDataDir = UserDataDirPath,
-                    ExecutablePath = executableLocalPath,
-                    IgnoredDefaultArgs = new[] { "--disable-extensions" },
-                    DefaultViewport = new ViewPortOptions() { Height = 600, Width = 1000 }
-                });
+                CurrentBrowserInstance = await LaunchBrowser(userDataDirPath, executableLocalPath);
             }
 
-            if (this.CurrentPage == null)
+            if (CurrentPageInstance == null)
             {
-                var pages = await CurrentBrowser.PagesAsync();
-                CurrentPage = null;
+                var pages = await CurrentBrowserInstance.PagesAsync();
+                CurrentPageInstance = null;
                 if (pages.Any() && pages.Last().Url == "about:blank")
                 {
-                    CurrentPage = pages.Last();
+                    CurrentPageInstance = pages.Last();
                 }
                 else
                 {
-                    CurrentPage = await CurrentBrowser.NewPageAsync();
+                    CurrentPageInstance = await CurrentBrowserInstance.NewPageAsync();
                 }
 
                 // configure Logger
-                CurrentPage.FrameNavigated += OnCurrentPageOnFrameNavigated;
-                CurrentPage.Load += OnCurrentPageOnLoad;
-                CurrentPage.Error += OnCurrentPageOnError;
-                CurrentPage.DOMContentLoaded += OnCurrentPageOnDomContentLoaded;
-                CurrentPage.RequestFailed += OnCurrentPageOnRequestFailed;
-                CurrentPage.Close += OnCurrentPageOnClose;
-                CurrentPage.PageError += OnCurrentPageOnPageError;
-                CurrentPage.Dialog += OnCurrentPageOnDialog;
-                CurrentBrowser.Closed += OnCurrentBrowserOnClosed;
+                CurrentPageInstance.FrameNavigated += OnCurrentPageInstanceOnFrameNavigated;
+                CurrentPageInstance.Load += OnCurrentPageInstanceOnLoad;
+                CurrentPageInstance.Error += OnCurrentPageInstanceOnError;
+                CurrentPageInstance.DOMContentLoaded += OnCurrentPageInstanceOnDomContentLoaded;
+                CurrentPageInstance.RequestFailed += OnCurrentPageInstanceOnRequestFailed;
+                CurrentPageInstance.Close += OnCurrentPageInstanceOnClose;
+                CurrentPageInstance.PageError += OnCurrentPageInstanceOnPageInstanceError;
+                CurrentPageInstance.Dialog += OnCurrentPageInstanceOnDialog;
+                CurrentBrowserInstance.Closed += OnCurrentBrowserInstanceOnClosed;
 
-                //CurrentPage.Request += (sender, args) =>
+                //CurrentPageInstance.Request += (sender, args) =>
                 //{
                 //    App.PuppeteerLogger.Information($"{args.Request.Method.Method} {args.Request.Url}");
                 //};
-                //CurrentPage.Response += (sender, args) =>
+                //CurrentPageInstance.Response += (sender, args) =>
                 //{
                 //    App.PuppeteerLogger.Information($"{args.Response.Ok} {args.Response.Url}");
                 //};
-                //await CurrentPage.SetViewportAsync();
+                //await CurrentPageInstance.SetViewportAsync();
             }
-
         }
 
-        private void OnCurrentBrowserOnClosed(object? sender, EventArgs args)
-        {
+        private static async Task<Browser> LaunchBrowser(string userDataDirPath, string executableLocalPath) =>
+            await Puppeteer.LaunchAsync(new LaunchOptions
+            {
+                Headless = false,
+                UserDataDir = userDataDirPath,
+                ExecutablePath = executableLocalPath,
+                IgnoredDefaultArgs = new[] {"--disable-extensions"},
+                DefaultViewport = new ViewPortOptions() {Height = 600, Width = 1000}
+            });
+
+        private void OnCurrentBrowserInstanceOnClosed(object? sender, EventArgs args) =>
             App.PuppeteerLogger.Information($"Browser closed.");
-        }
 
-        private void OnCurrentPageOnDialog(object? sender, DialogEventArgs args)
-        {
+        private void OnCurrentPageInstanceOnDialog(object? sender, DialogEventArgs args) =>
             App.PuppeteerLogger.Information($"{args.Dialog.DialogType} {args.Dialog.Message}");
-        }
 
-        private void OnCurrentPageOnPageError(object? sender, PageErrorEventArgs args)
-        {
+        private void OnCurrentPageInstanceOnPageInstanceError(object? sender, PageErrorEventArgs args) =>
             App.PuppeteerLogger.Error($"PageError {args.Message}");
-        }
 
-        private void OnCurrentPageOnClose(object? sender, EventArgs args)
-        {
+        private void OnCurrentPageInstanceOnClose(object? sender, EventArgs args) =>
             App.PuppeteerLogger.Information($"Page closed.");
-        }
 
-        private void OnCurrentPageOnRequestFailed(object? sender, RequestEventArgs args)
-        {
+        private void OnCurrentPageInstanceOnRequestFailed(object? sender, RequestEventArgs args) =>
             App.PuppeteerLogger.Error($"{args.Request.Method.Method} {args.Request.Url}");
-        }
 
-        private void OnCurrentPageOnDomContentLoaded(object? sender, EventArgs args)
-        {
-            App.PuppeteerLogger.Information($"DOMLoaded {CurrentPage.Url}");
-        }
+        private void OnCurrentPageInstanceOnDomContentLoaded(object? sender, EventArgs args) =>
+            App.PuppeteerLogger.Information($"DOMLoaded {CurrentPageInstance.Url}");
 
-        private void OnCurrentPageOnError(object? sender, ErrorEventArgs args)
-        {
+        private void OnCurrentPageInstanceOnError(object? sender, ErrorEventArgs args) =>
             App.PuppeteerLogger.Error($"{args.Error}");
-        }
 
-        private void OnCurrentPageOnLoad(object? sender, EventArgs args)
-        {
-            App.PuppeteerLogger.Information($"Loaded {CurrentPage.Url}");
-        }
+        private void OnCurrentPageInstanceOnLoad(object? sender, EventArgs args) =>
+            App.PuppeteerLogger.Information($"Loaded {CurrentPageInstance.Url}");
 
-        private void OnCurrentPageOnFrameNavigated(object? sender, FrameEventArgs args)
-        {
+        private void OnCurrentPageInstanceOnFrameNavigated(object? sender, FrameEventArgs args) =>
             App.PuppeteerLogger.Information($"Navigated to {args.Frame.Url}");
+
+        public void DeleteUserData()
+        {
+            foreach (ILocalBrowser localBrowser in _localBrowsers)
+            {
+                var path = UserDataDirPath(localBrowser.BrowserID);
+                Directory.Delete(path, true);
+            }
         }
     }
 }
