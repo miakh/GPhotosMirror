@@ -29,5 +29,6 @@ namespace GPhotosMirror
         public const int LongTimeout = 1000;
         public static WaitForSelectorOptions NoTimeoutOptions = new WaitForSelectorOptions() { Timeout = 0 };
         public static WaitForSelectorOptions NoTimeoutOptionsHidden = new WaitForSelectorOptions() { Timeout = 0, Hidden = true };
+        public static NavigationOptions NoNavigationTimeoutOptions = new NavigationOptions(){Timeout = 0};
     }
 }

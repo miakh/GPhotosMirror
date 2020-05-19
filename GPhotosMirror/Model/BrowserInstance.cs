@@ -11,16 +11,21 @@ namespace GPhotosMirror.Model
 {
     public class BrowserInstance
     {
+        private readonly GUser _gUser;
         private readonly List<ILocalBrowser> _localBrowsers;
         public Browser CurrentBrowserInstance;
         public Page CurrentPageInstance;
 
-        public BrowserInstance(IEnumerable<ILocalBrowser> localBrowsers) => _localBrowsers = localBrowsers.ToList();
+        public BrowserInstance(IEnumerable<ILocalBrowser> localBrowsers, GUser gUser)
+        {
+            _gUser = gUser;
+            _localBrowsers = localBrowsers.ToList();
+        }
 
-        public string UserDataDirPath(string browserId)
+        public string UserDataDirPath()
         {
             string userPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            string dataDirPath = $"AppData\\Local\\GDriveMirror\\User Data\\{browserId}";
+            string dataDirPath = $"AppData\\Local\\GDriveMirror\\User Data";
             string userDataDirPath = Path.Combine(userPath, dataDirPath);
             return userDataDirPath;
         }
@@ -31,6 +36,9 @@ namespace GPhotosMirror.Model
             {
                 return;
             }
+
+            // remove user closed browser action
+            CurrentBrowserInstance.Closed -= OnUserClosedBrowser;
 
             // remove Methods on actions
             CurrentPageInstance.FrameNavigated -= OnCurrentPageInstanceOnFrameNavigated;
@@ -57,8 +65,6 @@ namespace GPhotosMirror.Model
             if (CurrentBrowserInstance == null)
             {
                 string executableLocalPath = null;
-                string userDataDirPath = null;
-
 
                 // prioritize last used browser
                 var useBrowser = _localBrowsers.FirstOrDefault(b => b.BrowserID == UserSettings.Default.UsedBrowser);
@@ -76,13 +82,23 @@ namespace GPhotosMirror.Model
                         continue;
                     }
 
-                    userDataDirPath = UserDataDirPath(localBrowser.BrowserID);
-                    UserSettings.Default.UsedBrowser = localBrowser.BrowserID;
-                    UserSettings.Default.Save();
+                    // Sign out if browser is changed
+                    if (localBrowser.BrowserID != UserSettings.Default.UsedBrowser)
+                    {
+                        _gUser.IsSignedIn = false;
+                        this.DeleteUserData();
+                        UserSettings.Default.UsedBrowser = localBrowser.BrowserID;
+                        UserSettings.Default.Save();
+                    }
+
                     break;
                 }
 
-                CurrentBrowserInstance = await LaunchBrowser(userDataDirPath, executableLocalPath);
+                CurrentBrowserInstance = await LaunchBrowser(UserDataDirPath(), executableLocalPath);
+
+                // user closes browser scenario
+                CurrentBrowserInstance.Closed += OnUserClosedBrowser;
+
             }
 
             if (CurrentPageInstance == null)
@@ -119,6 +135,11 @@ namespace GPhotosMirror.Model
                 //};
                 //await CurrentPageInstance.SetViewportAsync();
             }
+        }
+
+        private async void OnUserClosedBrowser(object? sender, EventArgs e)
+        {
+            await this.Close();
         }
 
         private static async Task<Browser> LaunchBrowser(string userDataDirPath, string executableLocalPath) =>
@@ -160,11 +181,7 @@ namespace GPhotosMirror.Model
 
         public void DeleteUserData()
         {
-            foreach (ILocalBrowser localBrowser in _localBrowsers)
-            {
-                var path = UserDataDirPath(localBrowser.BrowserID);
-                Directory.Delete(path, true);
-            }
+            Directory.Delete(UserDataDirPath(), true);
         }
     }
 }

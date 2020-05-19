@@ -73,6 +73,10 @@ namespace GPhotosMirror
             serviceCollection.AddSingleton<IOutputLogFilter, SettingsOutputLogFilter>();
             serviceCollection.AddSingleton<IHighlightingProvider, LogHighlightingProvider>();
 
+            // User
+            serviceCollection.AddSingleton<GUser>();
+
+
             // Browsers
             serviceCollection.AddSingleton<ILocalBrowser, Chrome>();
             serviceCollection.AddSingleton<ILocalBrowser, MSEdge>();

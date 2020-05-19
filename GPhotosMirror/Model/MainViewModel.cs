@@ -18,25 +18,73 @@ using Serilog;
 
 namespace GPhotosMirror.Model
 {
+    public class GUser:INotifyPropertyChanged
+    {
+        private bool _isSignedIn;
+        private bool _isSigningIn;
+        private string _userName;
+
+        public bool IsSignedIn
+        {
+            get => _isSignedIn;
+            set
+            {
+                _isSignedIn = value;
+                if (UserSettings.Default.WasSignedIn != value)
+                {
+                    UserSettings.Default.WasSignedIn = value;
+                    UserSettings.Default.Save();
+                }
+
+                OnPropertyChanged();
+            }
+        }
+
+        public bool IsSigningIn
+        {
+            get => _isSigningIn;
+            set
+            {
+                _isSigningIn = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public string UserName
+        {
+            set
+            {
+                _userName = value;
+                OnPropertyChanged();
+            }
+            get => !string.IsNullOrEmpty(_userName) ? _userName : "";
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        [Annotations.NotifyPropertyChangedInvocator]
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
     public class MainViewModel : INotifyPropertyChanged
     {
         private readonly GPhotosNotifications _notificationMessageManager;
         private ICommand _changePath;
         private RelayCommand _executeCommand;
-        private bool _isSignedIn;
-        private bool _isSigningIn;
         private string _localRoot;
         private RelayCommand _logoutCommand;
         private RelayCommand _signInCommand;
         private RelayCommand _stopExecutionCommand;
 
-
         private string _userName;
 
-        public MainViewModel(GPhotosNotifications notificationMessageManager, BrowserInstance browserInstance)
+        public MainViewModel(GPhotosNotifications notificationMessageManager, BrowserInstance browserInstance, GUser gUser)
         {
             Browser = browserInstance;
             _notificationMessageManager = notificationMessageManager;
+            User = gUser;
             TScheduler = TaskScheduler.FromCurrentSynchronizationContext();
         }
 
@@ -46,6 +94,11 @@ namespace GPhotosMirror.Model
         }
         private TaskScheduler TScheduler { get; }
 
+        public GUser User
+        {
+            get;
+            private set;
+        }
         public string LocalRoot
         {
             get => _localRoot;
@@ -60,16 +113,6 @@ namespace GPhotosMirror.Model
 
         public ICommand ChangePathCommand => _changePath ??= new RelayCommand(ChangePath);
 
-        public string UserName
-        {
-            set
-            {
-                _userName = value;
-                NotifyPropertyChanged();
-            }
-            get => !string.IsNullOrEmpty(_userName) ? _userName : "";
-        }
-
 
         public ICommand LogoutCommand => _logoutCommand ??= new RelayCommand(Logout);
 
@@ -81,36 +124,11 @@ namespace GPhotosMirror.Model
             _executeCommand ??=
                 new RelayCommand(() => Task.Run(async () => { await MTE.Execute(); }).SafeFireAndForget());
 
-        public bool IsSignedIn
-        {
-            get => _isSignedIn;
-            set
-            {
-                _isSignedIn = value;
-                if (UserSettings.Default.WasSignedIn != value)
-                {
-                    UserSettings.Default.WasSignedIn = value;
-                    UserSettings.Default.Save();
-                }
-
-                NotifyPropertyChanged();
-                NotifyPropertyChanged(nameof(CanUpload));
-            }
-        }
 
         public ICommand SignInCommand =>
             _signInCommand ??=
                 new RelayCommand(() => Task.Run(async () => { await SignIn(); }).SafeFireAndForget());
 
-        public bool IsSigningIn
-        {
-            get => _isSigningIn;
-            set
-            {
-                _isSigningIn = value;
-                NotifyPropertyChanged();
-            }
-        }
 
         public bool CanUpload => !string.IsNullOrEmpty(UserSettings.Default.RootPath) && MTE.IsExecuteButtonEnabled;
 
@@ -148,6 +166,14 @@ namespace GPhotosMirror.Model
             MTE.PropertyChanged += (sender, args) =>
             {
                 if (args.PropertyName == nameof(MTE.IsExecuteButtonEnabled))
+                {
+                    NotifyPropertyChanged(nameof(CanUpload));
+                }
+            };
+
+            User.PropertyChanged += (sender, args) =>
+            {
+                if (args.PropertyName == nameof(User.IsSignedIn))
                 {
                     NotifyPropertyChanged(nameof(CanUpload));
                 }
@@ -208,8 +234,8 @@ namespace GPhotosMirror.Model
         {
             // Deletes cached users cookies
             Browser.DeleteUserData();
-            IsSignedIn = false;
-            NotifyPropertyChanged(nameof(UserName));
+            User.IsSignedIn = false;
+            NotifyPropertyChanged(nameof(User.UserName));
             Log.Information($"Now you are signed out.");
         }
 
@@ -242,7 +268,7 @@ namespace GPhotosMirror.Model
 
         private async Task SignIn()
         {
-            IsSigningIn = true;
+            User.IsSigningIn = true;
             Log.Information($"Signing in...");
 
             try
@@ -261,10 +287,10 @@ namespace GPhotosMirror.Model
                     }
 
                     //wait for login
-                    await Browser.CurrentPageInstance.WaitForNavigationAsync();
+                    await Browser.CurrentPageInstance.WaitForNavigationAsync(Constants.NoNavigationTimeoutOptions);
                 }
 
-                UserName = (await Browser.CurrentPageInstance.EvaluateExpressionAsync(
+                User.UserName = (await Browser.CurrentPageInstance.EvaluateExpressionAsync(
                     @"let username = function() {
                             let elem = document.querySelectorAll('.gb_pe div');
                             let userMail = elem[elem.length-1].innerText;
@@ -272,10 +298,10 @@ namespace GPhotosMirror.Model
                             };
                             username();")).ToObject<string>();
 
-                IsSignedIn = true;
-                Log.Information($"Signed in as {UserName}.");
+                User.IsSignedIn = true;
+                Log.Information($"Signed in as {User.UserName}.");
 
-                LiteInstance liteDB = new LiteInstance(UserName);
+                LiteInstance liteDB = new LiteInstance(User.UserName);
                 liteDB.Initialize();
 
                 MTE.StartAction = async () =>
@@ -289,15 +315,23 @@ namespace GPhotosMirror.Model
             }
             catch (Exception e)
             {
-                if (!IsSignedIn)
+                if (!User.IsSignedIn)
                 {
-                    Log.Error($"Signing in ended with error: {e}");
+                    if (e is TargetClosedException || Browser.CurrentPageInstance.IsClosed)
+                    {
+                        Log.Error($"Browser closed. Signing in ended.");
+
+                    }
+                    else
+                    {
+                        Log.Error($"Signing in ended with error: {e}");
+                    }
                 }
 
                 Console.WriteLine(e);
             }
 
-            IsSigningIn = false;
+            User.IsSigningIn = false;
         }
 
 
