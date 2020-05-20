@@ -75,7 +75,8 @@ namespace GPhotosMirror
 
             // User
             serviceCollection.AddSingleton<GUser>();
-
+            // Settings
+            serviceCollection.AddSingleton<Settings>();
 
             // Browsers
             serviceCollection.AddSingleton<ILocalBrowser, Chrome>();

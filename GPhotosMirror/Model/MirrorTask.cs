@@ -43,6 +43,7 @@ namespace GPhotosMirror.Model
         {
             //if localParent contains files
             var localFiles = Directory.GetFiles(LocalFolder).FilterPhotosVideos();
+            //Path.GetRelativePath(LocalFolder,)
             var filesUp = _liteInstance.GetFilesFromDirectory(LocalFolder);
             IEnumerable<string> filesToGoUp = null;
             if (filesUp != null)
@@ -58,7 +59,7 @@ namespace GPhotosMirror.Model
             if (filesToGoUpList.Any())
             {
                 var createAlbumTask = new CreateAlbumTask(LocalFolder, page, _liteInstance);
-                var dirUp = _liteInstance.LiteDirectories.FindOne(d => d.LocalPath == LocalFolder);
+                var dirUp = _liteInstance.GetDirectory(LocalFolder);
 
                 if (dirUp != null)
                 {
@@ -67,7 +68,7 @@ namespace GPhotosMirror.Model
                     if (!response.Ok)
                     {
                         dirUp.Link = null;
-                        _liteInstance.LiteDirectories.Upsert(dirUp);
+                        _liteInstance.DirectoryUp(dirUp);
                     }
                 }
 
@@ -197,7 +198,7 @@ namespace GPhotosMirror.Model
         public override async Task Proceed(CancellationToken ct = default)
         {
             var link = page.Url.Substring(page.Url.LastIndexOf("/", StringComparison.Ordinal) + 1);
-            _liteInstance.DirectoryUp(_parent, link);
+            _liteInstance.DirectoryUpFromLocalPath(_parent, link);
 
             // Get browser Window from minimized to normal state 
             var session = await page.Target.CreateCDPSessionAsync();

@@ -18,6 +18,8 @@ namespace GPhotosMirror
         public const int PuppeteerMinimalVersion = 59;
         public const string LITE_FILE = "LiteFile";
         public const string LITE_DIRECTORY = "LiteDirectory";
+        public const string LITE_ROOT_PATH = "LiteRootPath";
+
 
         public const string DatabaseFileName = "DB.db";
 

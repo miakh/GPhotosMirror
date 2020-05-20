@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Configuration;
 using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -9,6 +10,7 @@ using System.Windows.Input;
 using AsyncAwaitBestPractices;
 using Enterwell.Clients.Wpf.Notifications;
 using GalaSoft.MvvmLight.Command;
+using MaterialDesignExtensions.Localization;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using Onova;
 using Onova.Models;
@@ -18,51 +20,33 @@ using Serilog;
 
 namespace GPhotosMirror.Model
 {
-    public class GUser:INotifyPropertyChanged
+    public class Settings : INotifyPropertyChanged
     {
-        private bool _isSignedIn;
-        private bool _isSigningIn;
-        private string _userName;
-
-        public bool IsSignedIn
+        public Settings()
         {
-            get => _isSignedIn;
+            UserSettings.Default.SettingsLoaded+=SettingsLoaded;
+        }
+
+        private void SettingsLoaded(object sender, SettingsLoadedEventArgs e)
+        {
+            LocalRoot = UserSettings.Default.RootPath;
+        }
+
+        private string _localRoot;
+
+        public string LocalRoot
+        {
+            get => _localRoot;
             set
             {
-                _isSignedIn = value;
-                if (UserSettings.Default.WasSignedIn != value)
+                if (_localRoot != value)
                 {
-                    UserSettings.Default.WasSignedIn = value;
+                    _localRoot = value;
+                    UserSettings.Default.RootPath = value;
                     UserSettings.Default.Save();
+                    OnPropertyChanged();
                 }
-
-                if (!value)
-                {
-                    UserName = "";
-                }
-
-                OnPropertyChanged();
             }
-        }
-
-        public bool IsSigningIn
-        {
-            get => _isSigningIn;
-            set
-            {
-                _isSigningIn = value;
-                OnPropertyChanged();
-            }
-        }
-
-        public string UserName
-        {
-            set
-            {
-                _userName = value;
-                OnPropertyChanged();
-            }
-            get => !string.IsNullOrEmpty(_userName) ? _userName : "";
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -78,18 +62,17 @@ namespace GPhotosMirror.Model
         private readonly GPhotosNotifications _notificationMessageManager;
         private ICommand _changePath;
         private RelayCommand _executeCommand;
-        private string _localRoot;
         private RelayCommand _logoutCommand;
         private RelayCommand _signInCommand;
         private RelayCommand _stopExecutionCommand;
 
-        private string _userName;
 
-        public MainViewModel(GPhotosNotifications notificationMessageManager, BrowserInstance browserInstance, GUser gUser)
+        public MainViewModel(GPhotosNotifications notificationMessageManager, BrowserInstance browserInstance, GUser gUser, Settings settings)
         {
             Browser = browserInstance;
             _notificationMessageManager = notificationMessageManager;
             User = gUser;
+            Settings = settings;
             TScheduler = TaskScheduler.FromCurrentSynchronizationContext();
         }
 
@@ -102,17 +85,9 @@ namespace GPhotosMirror.Model
         public GUser User
         {
             get;
-            private set;
         }
-        public string LocalRoot
-        {
-            get => _localRoot;
-            set
-            {
-                _localRoot = value;
-                NotifyPropertyChanged();
-            }
-        }
+
+        public Settings Settings { get; }
 
         public MirrorTaskExecutioner MTE { get; set; } = new MirrorTaskExecutioner();
 
@@ -152,10 +127,8 @@ namespace GPhotosMirror.Model
             Log.Information(
                 $"Welcome in GPhotosMirror (version {Assembly.GetExecutingAssembly().GetName().Version.ToString(3)})!");
 
-            //Load local root folder from settings
-            LocalRoot = UserSettings.Default.RootPath;
 
-            if (string.IsNullOrWhiteSpace(LocalRoot) || !UserSettings.Default.WasSignedIn)
+            if (string.IsNullOrWhiteSpace(Settings.LocalRoot) || !UserSettings.Default.WasSignedIn)
             {
                 Log.Information($"Sign in and choose folder you want to enable upload to Google Photos.");
                 Log.Information($"Folder and all the subfolders will be uploaded as independent albums.");
@@ -263,12 +236,10 @@ namespace GPhotosMirror.Model
                 synchronizePath = dialog.FileName;
             }
 
-            UserSettings.Default.RootPath = synchronizePath;
-            UserSettings.Default.Save();
-            LocalRoot = synchronizePath;
-            EnsureDirectoryExist(LocalRoot);
+            Settings.LocalRoot = synchronizePath;
+            
             NotifyPropertyChanged(nameof(CanUpload));
-            Log.Information($"Directory with photos set to {LocalRoot}.");
+            Log.Information($"Directory with photos set to {Settings.LocalRoot}.");
         }
 
         private async Task SignIn()
@@ -306,14 +277,14 @@ namespace GPhotosMirror.Model
                 User.IsSignedIn = true;
                 Log.Information($"Signed in as {User.UserName}.");
 
-                LiteInstance liteDB = new LiteInstance(User.UserName);
+                LiteInstance liteDB = new LiteInstance(User.UserName, Settings);
                 liteDB.Initialize();
 
                 MTE.StartAction = async () =>
                 {
                     await Browser.LaunchIfClosed();
                     Page page = Browser.CurrentPageInstance;
-                    OpenOrCreateAlbumTask rootOpenCreate = new OpenOrCreateAlbumTask(LocalRoot, MTE, page, liteDB);
+                    OpenOrCreateAlbumTask rootOpenCreate = new OpenOrCreateAlbumTask(Settings.LocalRoot, MTE, page, liteDB);
                     MTE.Enqueue(rootOpenCreate);
                 };
                 MTE.EndingAction = async () => { await Browser.Close(); };
