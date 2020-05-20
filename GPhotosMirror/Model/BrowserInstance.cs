@@ -115,6 +115,8 @@ namespace GPhotosMirror.Model
                     CurrentPageInstance = await CurrentBrowserInstance.NewPageAsync();
                 }
 
+
+
                 // configure Logger
                 CurrentPageInstance.FrameNavigated += OnCurrentPageInstanceOnFrameNavigated;
                 CurrentPageInstance.Load += OnCurrentPageInstanceOnLoad;
@@ -149,6 +151,11 @@ namespace GPhotosMirror.Model
                 Headless = false,
                 UserDataDir = userDataDirPath,
                 ExecutablePath = executableLocalPath,
+                //Args = new []{
+                //    "--disable-background-timer-throttling",
+                //    "--disable-backgrounding-occluded-windows",
+                //    "--disable-renderer-backgrounding"
+                //},
                 IgnoredDefaultArgs = new[] {"--disable-extensions"},
                 DefaultViewport = new ViewPortOptions() {Height = 600, Width = 1000}
             });

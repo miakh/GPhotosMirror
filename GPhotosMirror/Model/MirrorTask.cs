@@ -198,10 +198,22 @@ namespace GPhotosMirror.Model
         {
             var link = page.Url.Substring(page.Url.LastIndexOf("/", StringComparison.Ordinal) + 1);
             _liteInstance.DirectoryUp(_parent, link);
+
+            // Get browser Window from minimized to normal state 
+            var session = await page.Target.CreateCDPSessionAsync();
+            //await session.SendAsync("Page.enable");
+
+            dynamic window = await session.SendAsync<object>("Browser.getWindowForTarget");
+            await session.SendAsync("Browser.setWindowBounds", new { window.windowId, bounds = new { windowState =  "normal"} });
+
+            //await session.SendAsync("Browser.setWindowBounds", new { window.windowId, bounds = new { left = -1100, windowState = "normal" } });
+
+            //await session.SendAsync("Page.setWebLifecycleState", new { state = "active" });
+            //await session.SendAsync("Page.bringToFront");
+
             //handles both scenarios:
             //1. add photos to empty album
             //2. add photos to album with at least one photo
-
             await page.WaitForSelectorAsync(".VfPpkd-LgbsSe.VfPpkd-LgbsSe-OWXEXe-k8QpJ.nCP5yc.AjY5Oe");
             var addPhotoButton = await page.EvaluateExpressionAsync(@"
             let addPhotos = function() {
