@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -14,12 +13,14 @@ namespace GPhotosMirror.Model
     {
         private readonly GUser _gUser;
         private readonly List<ILocalBrowser> _localBrowsers;
+        private readonly Settings _settings;
         public Browser CurrentBrowserInstance;
         public Page CurrentPageInstance;
 
-        public BrowserInstance(IEnumerable<ILocalBrowser> localBrowsers, GUser gUser)
+        public BrowserInstance(IEnumerable<ILocalBrowser> localBrowsers, GUser gUser, Settings settings)
         {
             _gUser = gUser;
+            _settings = settings;
             _localBrowsers = localBrowsers.ToList();
         }
 
@@ -68,7 +69,7 @@ namespace GPhotosMirror.Model
                 string executableLocalPath = null;
 
                 // prioritize last used browser
-                var useBrowser = _localBrowsers.FirstOrDefault(b => b.BrowserID == UserSettings.Default.UsedBrowser);
+                var useBrowser = _localBrowsers.FirstOrDefault(b => b.BrowserID == _settings.UsedBrowser);
                 if (useBrowser != null)
                 {
                     _localBrowsers.Remove(useBrowser);
@@ -84,12 +85,11 @@ namespace GPhotosMirror.Model
                     }
 
                     // Sign out if browser is changed
-                    if (localBrowser.BrowserID != UserSettings.Default.UsedBrowser)
+                    if (localBrowser.BrowserID != _settings.UsedBrowser)
                     {
                         _gUser.IsSignedIn = false;
-                        this.DeleteUserData();
-                        UserSettings.Default.UsedBrowser = localBrowser.BrowserID;
-                        UserSettings.Default.Save();
+                        DeleteUserData();
+                        _settings.UsedBrowser = localBrowser.BrowserID;
                     }
 
                     break;
@@ -99,7 +99,6 @@ namespace GPhotosMirror.Model
 
                 // user closes browser scenario
                 CurrentBrowserInstance.Closed += OnUserClosedBrowser;
-
             }
 
             if (CurrentPageInstance == null)
@@ -114,8 +113,6 @@ namespace GPhotosMirror.Model
                 {
                     CurrentPageInstance = await CurrentBrowserInstance.NewPageAsync();
                 }
-
-
 
                 // configure Logger
                 CurrentPageInstance.FrameNavigated += OnCurrentPageInstanceOnFrameNavigated;
@@ -140,10 +137,7 @@ namespace GPhotosMirror.Model
             }
         }
 
-        private async void OnUserClosedBrowser(object? sender, EventArgs e)
-        {
-            await this.Close();
-        }
+        private async void OnUserClosedBrowser(object? sender, EventArgs e) => await Close();
 
         private static async Task<Browser> LaunchBrowser(string userDataDirPath, string executableLocalPath) =>
             await Puppeteer.LaunchAsync(new LaunchOptions
@@ -187,9 +181,6 @@ namespace GPhotosMirror.Model
         private void OnCurrentPageInstanceOnFrameNavigated(object? sender, FrameEventArgs args) =>
             App.PuppeteerLogger.Information($"Navigated to {args.Frame.Url}");
 
-        public void DeleteUserData()
-        {
-            Directory.Delete(UserDataDirPath(), true);
-        }
+        public void DeleteUserData() => Directory.Delete(UserDataDirPath(), true);
     }
 }

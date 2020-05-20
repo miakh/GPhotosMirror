@@ -1,6 +1,5 @@
 ﻿using System;
 using System.ComponentModel;
-using System.Configuration;
 using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -10,7 +9,6 @@ using System.Windows.Input;
 using AsyncAwaitBestPractices;
 using Enterwell.Clients.Wpf.Notifications;
 using GalaSoft.MvvmLight.Command;
-using MaterialDesignExtensions.Localization;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using Onova;
 using Onova.Models;
@@ -20,43 +18,6 @@ using Serilog;
 
 namespace GPhotosMirror.Model
 {
-    public class Settings : INotifyPropertyChanged
-    {
-        public Settings()
-        {
-            UserSettings.Default.SettingsLoaded+=SettingsLoaded;
-        }
-
-        private void SettingsLoaded(object sender, SettingsLoadedEventArgs e)
-        {
-            LocalRoot = UserSettings.Default.RootPath;
-        }
-
-        private string _localRoot;
-
-        public string LocalRoot
-        {
-            get => _localRoot;
-            set
-            {
-                if (_localRoot != value)
-                {
-                    _localRoot = value;
-                    UserSettings.Default.RootPath = value;
-                    UserSettings.Default.Save();
-                    OnPropertyChanged();
-                }
-            }
-        }
-
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        [Annotations.NotifyPropertyChangedInvocator]
-        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        }
-    }
     public class MainViewModel : INotifyPropertyChanged
     {
         private readonly GPhotosNotifications _notificationMessageManager;
@@ -67,7 +28,8 @@ namespace GPhotosMirror.Model
         private RelayCommand _stopExecutionCommand;
 
 
-        public MainViewModel(GPhotosNotifications notificationMessageManager, BrowserInstance browserInstance, GUser gUser, Settings settings)
+        public MainViewModel(GPhotosNotifications notificationMessageManager, BrowserInstance browserInstance,
+            GUser gUser, Settings settings)
         {
             Browser = browserInstance;
             _notificationMessageManager = notificationMessageManager;
@@ -76,16 +38,9 @@ namespace GPhotosMirror.Model
             TScheduler = TaskScheduler.FromCurrentSynchronizationContext();
         }
 
-        public void ViewModelLoaded()
-        {
-            Initialize();
-        }
         private TaskScheduler TScheduler { get; }
 
-        public GUser User
-        {
-            get;
-        }
+        public GUser User { get; }
 
         public Settings Settings { get; }
 
@@ -110,25 +65,28 @@ namespace GPhotosMirror.Model
                 new RelayCommand(() => Task.Run(async () => { await SignIn(); }).SafeFireAndForget());
 
 
-        public bool CanUpload => !string.IsNullOrEmpty(UserSettings.Default.RootPath) && MTE.IsExecuteButtonEnabled;
+        public bool CanUpload => !string.IsNullOrEmpty(Settings.LocalRoot) && MTE.IsExecuteButtonEnabled;
 
         public BrowserInstance Browser { get; set; }
 
 
         public event PropertyChangedEventHandler PropertyChanged;
 
+        public void ViewModelLoaded() => Initialize();
+
         public async Task OnUIContext(Action action, CancellationToken cancellationToken = default) =>
             await Task.Factory.StartNew(action, cancellationToken, TaskCreationOptions.None, TScheduler);
 
-        public void Initialize()
+        public async void Initialize()
         {
             CheckAndUpdate().SafeFireAndForget();
 
             Log.Information(
                 $"Welcome in GPhotosMirror (version {Assembly.GetExecutingAssembly().GetName().Version.ToString(3)})!");
 
+            Settings.Reload();
 
-            if (string.IsNullOrWhiteSpace(Settings.LocalRoot) || !UserSettings.Default.WasSignedIn)
+            if (string.IsNullOrWhiteSpace(Settings.LocalRoot) || !Settings.WasSignedIn)
             {
                 Log.Information($"Sign in and choose folder you want to enable upload to Google Photos.");
                 Log.Information($"Folder and all the subfolders will be uploaded as independent albums.");
@@ -136,7 +94,7 @@ namespace GPhotosMirror.Model
             }
 
             // Sign in just to make sure it is possible
-            if (UserSettings.Default.WasSignedIn)
+            if (Settings.WasSignedIn)
             {
                 SignIn().SafeFireAndForget();
             }
@@ -237,7 +195,7 @@ namespace GPhotosMirror.Model
             }
 
             Settings.LocalRoot = synchronizePath;
-            
+
             NotifyPropertyChanged(nameof(CanUpload));
             Log.Information($"Directory with photos set to {Settings.LocalRoot}.");
         }
@@ -254,7 +212,8 @@ namespace GPhotosMirror.Model
                 //await using var Browser = await Puppeteer.ConnectAsync(new ConnectOptions(){ BrowserURL = "http://127.0.0.1:9222", DefaultViewport = new ViewPortOptions(){Height = 800, Width = 1000}});
                 //await using var page = await Browser.NewPageAsync();
 
-                await Browser.CurrentPageInstance.GoToAsync(Constants.GOOGLE_PHOTOS_URL, WaitUntilNavigation.Networkidle0);
+                await Browser.CurrentPageInstance.GoToAsync(Constants.GOOGLE_PHOTOS_URL,
+                    WaitUntilNavigation.Networkidle0);
                 while (true)
                 {
                     if (Browser.CurrentPageInstance.Url.Contains(Constants.GOOGLE_PHOTOS_URL))
@@ -284,7 +243,8 @@ namespace GPhotosMirror.Model
                 {
                     await Browser.LaunchIfClosed();
                     Page page = Browser.CurrentPageInstance;
-                    OpenOrCreateAlbumTask rootOpenCreate = new OpenOrCreateAlbumTask(Settings.LocalRoot, MTE, page, liteDB);
+                    OpenOrCreateAlbumTask rootOpenCreate =
+                        new OpenOrCreateAlbumTask(Settings.LocalRoot, MTE, page, liteDB);
                     MTE.Enqueue(rootOpenCreate);
                 };
                 MTE.EndingAction = async () => { await Browser.Close(); };
@@ -296,7 +256,6 @@ namespace GPhotosMirror.Model
                     if (e is TargetClosedException || Browser.CurrentPageInstance.IsClosed)
                     {
                         Log.Error($"Browser closed. Signing in ended.");
-
                     }
                     else
                     {
