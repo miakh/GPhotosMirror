@@ -53,24 +53,22 @@ namespace GPhotosMirror.Model
 
         public ICommand StopExecutionCommand =>
             _stopExecutionCommand ??=
-                new RelayCommand(() => Task.Run(async () => { await MTE.StopExecution(); }).SafeFireAndForget());
+                new RelayCommand(() => MTE.StopExecution().SafeFireAndForget());
 
         public ICommand ExecuteCommand =>
             _executeCommand ??=
-                new RelayCommand(() => Task.Run(async () => { await MTE.Execute(); }).SafeFireAndForget());
+                new RelayCommand(() => MTE.Execute().SafeFireAndForget());
 
 
         public ICommand SignInCommand =>
             _signInCommand ??=
-                new RelayCommand(() => Task.Run(async () => { await SignIn(); }).SafeFireAndForget());
+                new RelayCommand(() => SignIn().SafeFireAndForget());
 
 
         public bool CanUpload => !string.IsNullOrEmpty(Settings.LocalRoot) && MTE.IsExecuteButtonEnabled;
 
         public BrowserInstance Browser { get; set; }
 
-
-        public event PropertyChangedEventHandler PropertyChanged;
 
         public void ViewModelLoaded() => Initialize();
 
@@ -103,7 +101,7 @@ namespace GPhotosMirror.Model
             {
                 if (args.PropertyName == nameof(MTE.IsExecuteButtonEnabled))
                 {
-                    NotifyPropertyChanged(nameof(CanUpload));
+                    OnPropertyChanged(nameof(CanUpload));
                 }
             };
 
@@ -111,7 +109,7 @@ namespace GPhotosMirror.Model
             {
                 if (args.PropertyName == nameof(User.IsSignedIn))
                 {
-                    NotifyPropertyChanged(nameof(CanUpload));
+                    OnPropertyChanged(nameof(CanUpload));
                 }
             };
         }
@@ -171,7 +169,7 @@ namespace GPhotosMirror.Model
             // Deletes cached users cookies
             Browser.DeleteUserData();
             User.IsSignedIn = false;
-            NotifyPropertyChanged(nameof(User.UserName));
+            OnPropertyChanged(nameof(User.UserName));
             Log.Information($"Now you are signed out.");
         }
 
@@ -196,7 +194,7 @@ namespace GPhotosMirror.Model
 
             Settings.LocalRoot = synchronizePath;
 
-            NotifyPropertyChanged(nameof(CanUpload));
+            OnPropertyChanged(nameof(CanUpload));
             Log.Information($"Directory with photos set to {Settings.LocalRoot}.");
         }
 
@@ -269,8 +267,12 @@ namespace GPhotosMirror.Model
             User.IsSigningIn = false;
         }
 
+        public event PropertyChangedEventHandler PropertyChanged;
 
-        private void NotifyPropertyChanged([CallerMemberName] string propertyName = "") =>
+        [Annotations.NotifyPropertyChangedInvocator]
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
     }
 }

@@ -15,15 +15,13 @@ namespace GPhotosMirror.Model
         private bool _isExecuting;
         private bool _isStoppingExecution;
         private Func<Task> _startAction;
-        private long AllBytesUpload;
+        private long _allBytesUpload;
 
-        private int AllFilesUpload;
+        private int _allFoldersUpload;
 
-        private CancellationTokenSource cancellationTokenSource;
+        private CancellationTokenSource _cancellationTokenSource;
         public Func<Task> EndingAction;
-        private readonly SimplePriorityQueue<MirrorTask, int> MirrorTasks = new SimplePriorityQueue<MirrorTask, int>();
-        private long RemainingBytesUpload;
-        private int RemainingFilesUpload;
+        private readonly SimplePriorityQueue<MirrorTask, int> _mirrorTasks = new SimplePriorityQueue<MirrorTask, int>();
 
         public bool IsExecuteButtonShowing => !IsExecuting || IsStoppingExecution;
         public bool IsExecuteButtonEnabled => StartAction != null && !IsStoppingExecution;
@@ -43,14 +41,14 @@ namespace GPhotosMirror.Model
         {
             get
             {
-                if (AllFilesUpload == 0)
+                if (_allFoldersUpload == 0)
                 {
                     return "";
                 }
 
                 //use double in constructor to get byte size instead of bite size
                 return
-                    $"Uploaded {AllFilesUpload - RemainingFilesUpload} files ({new ByteSize((double)AllBytesUpload - RemainingBytesUpload)})";
+                    $"Uploaded {_allFoldersUpload} files ({new ByteSize((double)_allBytesUpload)})";
             }
         }
 
@@ -77,27 +75,13 @@ namespace GPhotosMirror.Model
 
         public event PropertyChangedEventHandler PropertyChanged;
 
-        public void PreExecute()
-        {
-            foreach (var mirrorTask in MirrorTasks)
-            {
-                if (mirrorTask is UploadPhotosTask uploadPhotoTask)
-                {
-                    AllBytesUpload += uploadPhotoTask.FileSize;
-                    AllFilesUpload += 1;
-                }
-            }
-
-            RemainingBytesUpload = AllBytesUpload;
-            RemainingFilesUpload = AllFilesUpload;
-            RefreshProgress();
-        }
-
         public async Task Execute()
         {
             IsExecuting = true;
+            RefreshProgress();
+
             Log.Information("Uploading process has started.");
-            cancellationTokenSource = new CancellationTokenSource();
+            _cancellationTokenSource = new CancellationTokenSource();
             if (StartAction != null)
             {
                 await StartAction?.Invoke();
@@ -105,16 +89,15 @@ namespace GPhotosMirror.Model
 
             try
             {
-                PreExecute();
-                while (MirrorTasks.Count > 0)
+                while (_mirrorTasks.Count > 0)
                 {
-                    cancellationTokenSource.Token.ThrowIfCancellationRequested();
-                    var task = MirrorTasks.Dequeue();
+                    _cancellationTokenSource.Token.ThrowIfCancellationRequested();
+                    var task = _mirrorTasks.Dequeue();
                     await task.Proceed();
                     if (task is UploadPhotosTask uploadPhotoTask)
                     {
-                        RemainingBytesUpload -= uploadPhotoTask.FileSize;
-                        RemainingFilesUpload -= 1;
+                        _allFoldersUpload += 1;
+                        _allBytesUpload += uploadPhotoTask.FileSize;
                         RefreshProgress();
                     }
                 }
@@ -139,13 +122,13 @@ namespace GPhotosMirror.Model
                 Log.Error($"{e}");
             }
 
-            if (AllFilesUpload == 0)
+            if (_allBytesUpload == 0)
             {
                 Log.Information($"No folder has been uploaded.");
             }
             else
             {
-                Log.Information($"Uploaded {AllFilesUpload} files ({new ByteSize(AllBytesUpload)}).");
+                Log.Information($"Uploaded {_allFoldersUpload} folders ({new ByteSize((double)_allBytesUpload)}).");
             }
 
             await StopExecution();
@@ -161,8 +144,11 @@ namespace GPhotosMirror.Model
                 await EndingAction?.Invoke();
             }
 
-            MirrorTasks.Clear();
-            cancellationTokenSource.Cancel();
+            _mirrorTasks.Clear();
+            _allFoldersUpload = 0;
+            _allBytesUpload = 0;
+
+            _cancellationTokenSource.Cancel();
             IsStoppingExecution = false;
             IsExecuting = false;
         }
@@ -171,15 +157,15 @@ namespace GPhotosMirror.Model
         {
             if (mt is OpenOrCreateAlbumTask)
             {
-                MirrorTasks.Enqueue(mt, 1);
+                _mirrorTasks.Enqueue(mt, 1);
             }
             else
             {
-                MirrorTasks.Enqueue(mt, 0);
+                _mirrorTasks.Enqueue(mt, 0);
             }
         }
 
-        public MirrorTask Dequeue() => MirrorTasks.Dequeue();
+        public MirrorTask Dequeue() => _mirrorTasks.Dequeue();
 
         [NotifyPropertyChangedInvocator]
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null) =>
