@@ -104,6 +104,12 @@ namespace GPhotosMirror.Model
                     break;
                 }
 
+                if (string.IsNullOrEmpty(executableLocalPath))
+                {
+                    // Failed to run any Browser
+                    return;
+                }
+
                 CurrentBrowserInstance = await LaunchBrowser(UserDataDirPath(), executableLocalPath);
 
                 // user closes browser scenario
