@@ -69,7 +69,9 @@ namespace GPhotosMirror.Model
                 string executableLocalPath = null;
 
                 // prioritize last used browser
-                var useBrowser = _localBrowsers.FirstOrDefault(b => b.BrowserID == _settings.UsedBrowser);
+                //var useBrowser = _localBrowsers.FirstOrDefault(b => b.BrowserID == _settings.UsedBrowser);
+                var useBrowser = _localBrowsers.FirstOrDefault(b => b is BundledChromium);
+
                 if (useBrowser != null)
                 {
                     _localBrowsers.Remove(useBrowser);

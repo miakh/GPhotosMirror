@@ -20,8 +20,16 @@ namespace GPhotosMirror.Model.Browsers
 
         public async Task<string> GetExecutable()
         {
+            string executableLocalPath = null;
             // try get executable of bundled
-            string executableLocalPath = Puppeteer.GetExecutablePath();
+            try
+            {
+                executableLocalPath = Puppeteer.GetExecutablePath();
+            }
+            catch (Exception e)
+            {
+                // Executable not found
+            }
             // Download bundled Chromium
             if (!CanUseExecutable(executableLocalPath))
             {

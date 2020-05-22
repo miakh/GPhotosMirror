@@ -257,7 +257,7 @@ namespace GPhotosMirror.Model
             {
                 if (!User.IsSignedIn)
                 {
-                    if (e is TargetClosedException || Browser.CurrentPageInstance.IsClosed)
+                    if (e is TargetClosedException || (Browser.CurrentPageInstance!=null&&Browser.CurrentPageInstance.IsClosed))
                     {
                         Log.Error($"Browser closed. Signing in ended.");
                     }
@@ -266,8 +266,11 @@ namespace GPhotosMirror.Model
                         Log.Error($"Signing in ended with error: {e}");
                     }
                 }
+                else
+                {
+                    Log.Error($"Error: {e}");
+                }
 
-                Log.Error($"Error: {e}");
             }
 
             User.IsSigningIn = false;
