@@ -5,7 +5,7 @@ using Microsoft.Win32;
 
 namespace GPhotosMirror.Model.Browsers
 {
-    public class Chrome : ILocalBrowser
+    public class Chrome : BrowserBase, ILocalBrowser
     {
         public string BrowserID => "Chrome";
 
@@ -20,7 +20,7 @@ namespace GPhotosMirror.Model.Browsers
                 if (o != null)
                 {
                     executableLocalPath = (o as string) + "\\chrome.exe";
-                    if (File.Exists(executableLocalPath))
+                    if (CanUseExecutable(executableLocalPath))
                     {
                         return executableLocalPath;
                     }

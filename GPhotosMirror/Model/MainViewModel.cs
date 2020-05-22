@@ -116,51 +116,57 @@ namespace GPhotosMirror.Model
 
         private async Task CheckAndUpdate()
         {
-            // Check for updates
-            UpdateManager manager = new UpdateManager(
-                new GithubPackageResolver("miakh", "GPhotosMirror", "GPhotosMirror*.zip"),
-                new ZipPackageExtractor());
-
-
-            CheckForUpdatesResult result = await manager.CheckForUpdatesAsync();
-            if (result.CanUpdate)
+            try
             {
-                _notificationMessageManager
-                    .NotificationMessageBuilder()
-                    .Animates(true)
-                    .AnimationInDuration(0.5)
-                    .AnimationOutDuration(0)
-                    .HasMessage($"New version is available ({result.LastVersion}).")
-                    .Dismiss().WithButton("Update now", async button =>
-                    {
-                        var downloadingBar = _notificationMessageManager.DownloadingBar;
-                        INotificationMessage message = _notificationMessageManager
-                            .NotificationMessageBuilder()
-                            .HasMessage("Downloading update...")
-                            .WithOverlay(downloadingBar)
-                            .Queue();
+                // Check for updates
+                UpdateManager manager = new UpdateManager(
+                    new GithubPackageResolver("miakh", "GPhotosMirror", "GPhotosMirror*.zip"),
+                    new ZipPackageExtractor());
 
-                        Log.Information($"Downloading update...");
-
-                        await manager.PrepareUpdateAsync(result.LastVersion, new Progress<double>(
-                            p => downloadingBar.Value = p * 100)
-                        );
-                        _notificationMessageManager.Dismiss(message);
-                        Log.Information($"Installing update...");
-
-                        manager.LaunchUpdater(result.LastVersion);
-
-                        // Close browser
-                        if (Browser != null)
+                CheckForUpdatesResult result = await manager.CheckForUpdatesAsync();
+                if (result.CanUpdate)
+                {
+                    _notificationMessageManager
+                        .NotificationMessageBuilder()
+                        .Animates(true)
+                        .AnimationInDuration(0.5)
+                        .AnimationOutDuration(0)
+                        .HasMessage($"New version is available ({result.LastVersion}).")
+                        .Dismiss().WithButton("Update now", async button =>
                         {
-                            await Browser.Close();
-                        }
+                            var downloadingBar = _notificationMessageManager.DownloadingBar;
+                            INotificationMessage message = _notificationMessageManager
+                                .NotificationMessageBuilder()
+                                .HasMessage("Downloading update...")
+                                .WithOverlay(downloadingBar)
+                                .Queue();
 
-                        // Terminate the running application so that the updater can overwrite files
-                        Environment.Exit(0);
-                    })
-                    .Dismiss().WithButton("Later", button => { })
-                    .Queue();
+                            Log.Information($"Downloading update...");
+
+                            await manager.PrepareUpdateAsync(result.LastVersion, new Progress<double>(
+                                p => downloadingBar.Value = p * 100)
+                            );
+                            _notificationMessageManager.Dismiss(message);
+                            Log.Information($"Installing update...");
+
+                            manager.LaunchUpdater(result.LastVersion);
+
+                            // Close browser
+                            if (Browser != null)
+                            {
+                                await Browser.Close();
+                            }
+
+                            // Terminate the running application so that the updater can overwrite files
+                            Environment.Exit(0);
+                        })
+                        .Dismiss().WithButton("Later", button => { })
+                        .Queue();
+                }
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Error while checking or getting new version.");
             }
         }
 
@@ -200,11 +206,11 @@ namespace GPhotosMirror.Model
 
         private async Task SignIn()
         {
-            User.IsSigningIn = true;
-            Log.Information($"Signing in...");
-
             try
             {
+                User.IsSigningIn = true;
+                Log.Information($"Signing in...");
+
                 await Browser.LaunchIfClosed();
                 //using current Chrome
                 //await using var Browser = await Puppeteer.ConnectAsync(new ConnectOptions(){ BrowserURL = "http://127.0.0.1:9222", DefaultViewport = new ViewPortOptions(){Height = 800, Width = 1000}});

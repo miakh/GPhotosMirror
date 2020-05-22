@@ -9,7 +9,7 @@ using Serilog;
 
 namespace GPhotosMirror.Model.Browsers
 {
-    public class BundledChromium : ILocalBrowser
+    public class BundledChromium : BrowserBase, ILocalBrowser
     {
         private readonly GPhotosNotifications _notificationMessageManager;
 
@@ -20,11 +20,10 @@ namespace GPhotosMirror.Model.Browsers
 
         public async Task<string> GetExecutable()
         {
-            string executableLocalPath = null;
             // try get executable of bundled
-            executableLocalPath = Puppeteer.GetExecutablePath();
+            string executableLocalPath = Puppeteer.GetExecutablePath();
             // Download bundled Chromium
-            if (!File.Exists(executableLocalPath))
+            if (!CanUseExecutable(executableLocalPath))
             {
                 executableLocalPath = await DownloadBundledChromium();
             }
