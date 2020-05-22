@@ -179,14 +179,6 @@ namespace GPhotosMirror.Model
             Log.Information($"Now you are signed out.");
         }
 
-        private void EnsureDirectoryExist(string directory)
-        {
-            if (!Directory.Exists(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-        }
-
         public void ChangePath()
         {
             CommonOpenFileDialog dialog = new CommonOpenFileDialog();
@@ -216,7 +208,7 @@ namespace GPhotosMirror.Model
                 //await using var Browser = await Puppeteer.ConnectAsync(new ConnectOptions(){ BrowserURL = "http://127.0.0.1:9222", DefaultViewport = new ViewPortOptions(){Height = 800, Width = 1000}});
                 //await using var page = await Browser.NewPageAsync();
 
-                await Browser.CurrentPageInstance.GoToAsync(Constants.GOOGLE_PHOTOS_URL,
+                await Browser.CurrentPageInstance.GoToAsync(Constants.GOOGLE_PHOTOS_LOGIN_URL,
                     WaitUntilNavigation.Networkidle0);
                 while (true)
                 {

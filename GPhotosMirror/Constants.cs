@@ -5,6 +5,8 @@ namespace GPhotosMirror
     internal class Constants
     {
         public const string GOOGLE_PHOTOS_URL_SEARCH = "https://photos.google.com/search";
+        public const string GOOGLE_PHOTOS_LOGIN_URL = "https://photos.google.com/login";
+
         public const string GOOGLE_PHOTOS_URL = "https://photos.google.com/";
         public const string GOOGLE_PHOTOS_ALBUM_URL = "https://photos.google.com/album/";
 

@@ -27,12 +27,19 @@ namespace GPhotosMirror.Model.Browsers
                 }
             }
 
-
-            // try other option
+            // try local data
             var executable = "Google\\Chrome\\Application\\chrome.exe";
+            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            executableLocalPath = Path.Combine(localAppData, executable);
+            if (CanUseExecutable(executableLocalPath))
+            {
+                return executableLocalPath;
+            }
+
+            // try program files
             var programfiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
             executableLocalPath = Path.Combine(programfiles, executable);
-            if (File.Exists(executableLocalPath))
+            if (CanUseExecutable(executableLocalPath))
             {
                 return executableLocalPath;
             }

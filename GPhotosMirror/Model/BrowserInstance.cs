@@ -23,12 +23,19 @@ namespace GPhotosMirror.Model
             _settings = settings;
             _localBrowsers = localBrowsers.ToList();
         }
-
+        private void EnsureDirectoryExist(string directory)
+        {
+            if (!Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+        }
         public string UserDataDirPath()
         {
             string userPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             string dataDirPath = $"AppData\\Local\\GDriveMirror\\User Data";
             string userDataDirPath = Path.Combine(userPath, dataDirPath);
+            EnsureDirectoryExist(userDataDirPath);
             return userDataDirPath;
         }
 
@@ -69,8 +76,8 @@ namespace GPhotosMirror.Model
                 string executableLocalPath = null;
 
                 // prioritize last used browser
-                //var useBrowser = _localBrowsers.FirstOrDefault(b => b.BrowserID == _settings.UsedBrowser);
-                var useBrowser = _localBrowsers.FirstOrDefault(b => b is BundledChromium);
+                var useBrowser = _localBrowsers.FirstOrDefault(b => b.BrowserID == _settings.UsedBrowser);
+                //var useBrowser = _localBrowsers.FirstOrDefault(b => b is BundledChromium);
 
                 if (useBrowser != null)
                 {
