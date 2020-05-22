@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
@@ -91,6 +92,8 @@ namespace GPhotosMirror
             Application.Current.DispatcherUnhandledException += async (o, args) =>
             {
                 await CloseBrowser();
+                string str = DateTime.Now + Environment.NewLine + args.Exception+ Environment.NewLine;
+                await File.AppendAllTextAsync("log.log", str);
             };
             Current.MainWindow = Container.GetService<MainWindow>();
             Current.MainWindow.Show();

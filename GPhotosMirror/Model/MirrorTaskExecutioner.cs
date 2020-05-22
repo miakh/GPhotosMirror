@@ -110,14 +110,15 @@ namespace GPhotosMirror.Model
                 {
                     //stop action
                     Log.Information("You have stopped the uploading process.");
-                    return;
+                }
+                else
+                {
+                    throw;
                 }
 
-                throw e;
             }
             catch (Exception e)
             {
-                Console.WriteLine(e);
                 Log.Error($"Uploading process has stopped.");
                 Log.Error($"{e}");
             }

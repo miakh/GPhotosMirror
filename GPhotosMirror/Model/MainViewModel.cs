@@ -267,7 +267,7 @@ namespace GPhotosMirror.Model
                     }
                 }
 
-                Console.WriteLine(e);
+                Log.Error($"Error: {e}");
             }
 
             User.IsSigningIn = false;
