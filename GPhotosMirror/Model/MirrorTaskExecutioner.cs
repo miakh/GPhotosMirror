@@ -48,7 +48,7 @@ namespace GPhotosMirror.Model
 
                 //use double in constructor to get byte size instead of bite size
                 return
-                    $"Uploaded {_allFoldersUpload} files ({new ByteSize((double)_allBytesUpload)})";
+                    $"Uploaded {"folder".DefaultEnglishCounter(_allFoldersUpload)} ({new ByteSize((double)_allBytesUpload)})";
             }
         }
 
@@ -87,12 +87,19 @@ namespace GPhotosMirror.Model
                 await StartAction?.Invoke();
             }
 
+            bool atLeastOneUpload = false;
             try
             {
                 while (_mirrorTasks.Count > 0)
                 {
                     _cancellationTokenSource.Token.ThrowIfCancellationRequested();
                     var task = _mirrorTasks.Dequeue();
+
+                    if (atLeastOneUpload||task is UploadPhotosTask)
+                    {
+                        atLeastOneUpload = true;
+                    }
+
                     await task.Proceed();
                     if (task is UploadPhotosTask uploadPhotoTask)
                     {
@@ -102,7 +109,6 @@ namespace GPhotosMirror.Model
                     }
                 }
             }
-
             catch (PuppeteerException e)
             {
                 if (e is TargetClosedException || e is NavigationException
@@ -123,13 +129,17 @@ namespace GPhotosMirror.Model
                 Log.Error($"{e}");
             }
 
-            if (_allBytesUpload == 0)
+            if (!atLeastOneUpload)
+            {
+                Log.Information($"Nothing to do here. It seems like everything is uploaded!");
+            }
+            else if (_allBytesUpload == 0)
             {
                 Log.Information($"No folder has been uploaded.");
             }
             else
             {
-                Log.Information($"Uploaded {_allFoldersUpload} folders ({new ByteSize((double)_allBytesUpload)}).");
+                Log.Information(ProgressPretty);
             }
 
             await StopExecution();

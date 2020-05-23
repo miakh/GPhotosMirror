@@ -241,7 +241,7 @@ namespace GPhotosMirror.Model
 
             var localFolderName = Path.GetFileName(_parent);
             Log.Information(
-                $"Uploading {_localFilesPaths.Count()} files ({new ByteSize((double)FileSize)}) to {localFolderName}...");
+                $"Uploading {"file".DefaultEnglishCounter(_localFilesPaths.Count())} ({new ByteSize((double)FileSize)}) to {localFolderName}...");
 
             //upload box hidden
             await page.WaitForSelectorAsync(".aHPraf.zPNfib", Constants.NoTimeoutOptionsHidden);
@@ -251,7 +251,7 @@ namespace GPhotosMirror.Model
             {
                 _liteInstance.FilesUp(_localFilesPaths, _parent);
                 Log.Information(
-                    $"{_localFilesPaths.Count()} files ({new ByteSize((double)FileSize)}) uploaded to {localFolderName}.");
+                    $"{"file".DefaultEnglishCounter(_localFilesPaths.Count())} ({new ByteSize((double)FileSize)}) uploaded to {localFolderName}.");
             }
             else
             {
