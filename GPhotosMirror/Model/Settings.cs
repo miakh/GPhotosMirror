@@ -53,6 +53,12 @@ namespace GPhotosMirror.Model
 
         public void Reload()
         {
+            if (UserSettings.Default.Upgrade)
+            {
+                UserSettings.Default.Upgrade();
+                UserSettings.Default.Upgrade = false;
+                UserSettings.Default.Save();
+            }
             UserSettings.Default.Reload();
             OnPropertyChanged(nameof(LocalRoot));
         }

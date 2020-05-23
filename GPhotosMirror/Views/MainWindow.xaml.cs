@@ -9,9 +9,6 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace GPhotosMirror.Views
 {
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
     public partial class MainWindow : MetroWindow
     {
         private MainViewModel _mainViewModel;
