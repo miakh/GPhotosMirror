@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System;
+using System.Windows;
 using System.Windows.Controls;
 using Enterwell.Clients.Wpf.Notifications;
 using GPhotosMirror.Model;
@@ -9,32 +10,42 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace GPhotosMirror.Views
 {
-    public partial class MainWindow : MetroWindow
+    public interface IWindow
     {
-        private MainViewModel _mainViewModel;
-
+        public void BringWindowToFront();
+        public Action OnLoaded { get; set; }
+    }
+    public partial class MainWindow : MetroWindow, IWindow
+    {
         public MainWindow(MainViewModel mainViewModel)
         {
             InitializeComponent();
-            _mainViewModel = mainViewModel;
-            this.DataContext = _mainViewModel;
+
+            // setup MainViewModel
+            this.DataContext = mainViewModel;
+            mainViewModel.LoadWindow(this);
             this.Loaded += OneTimeLoaded;
-            var outputViewModel = (OutputViewModel)App.Services.GetService<OutputViewModel>();
-            //var outputView = (OutputView)App.Services.GetService<IOutputView>();
-            //mainGrid.Children.Add(outputView);
-            //Grid.SetRow(outputView, 1);
-            //outputView.DataContext = outputViewModel;
-            //outputViewModel.LoadView(outputView);
+
+            // setup output
+            var outputViewModel = App.Services.GetService<OutputViewModel>();
             OutputView.DataContext = outputViewModel;
             outputViewModel.OnViewLoaded(OutputView);
 
+            // setup notifications
             NotificationMessageContainer.Manager = App.Services.GetService<GPhotosNotifications>();
         }
 
         private void OneTimeLoaded(object sender, RoutedEventArgs e)
         {
-            _mainViewModel.ViewModelLoaded();
+            OnLoaded?.Invoke();
             this.Loaded -= OneTimeLoaded;
         }
+
+        public void BringWindowToFront()
+        {
+            this.Activate();
+        }
+
+        public Action OnLoaded { get; set; }
     }
 }

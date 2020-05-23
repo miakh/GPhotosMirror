@@ -191,11 +191,21 @@ namespace GPhotosMirror.Model
             App.PuppeteerLogger.Error($"{args.Error}");
 
         private void OnCurrentPageInstanceOnLoad(object? sender, EventArgs args) =>
-            App.PuppeteerLogger.Information($"Loaded {CurrentPageInstance.Url}");
+            App.PuppeteerLogger.Information($"OnLoaded {CurrentPageInstance.Url}");
 
         private void OnCurrentPageInstanceOnFrameNavigated(object? sender, FrameEventArgs args) =>
             App.PuppeteerLogger.Information($"Navigated to {args.Frame.Url}");
 
-        public void DeleteUserData() => Directory.Delete(UserDataDirPath(), true);
+        public void DeleteUserData()
+        {
+            try
+            {
+                Directory.Delete(UserDataDirPath(), true);
+            }
+            catch (Exception e)
+            {
+                // there might be also files that can't be touched
+            }
+        }
     }
 }

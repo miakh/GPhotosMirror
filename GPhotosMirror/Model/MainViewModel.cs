@@ -1,6 +1,5 @@
 ﻿using System;
 using System.ComponentModel;
-using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -9,6 +8,7 @@ using System.Windows.Input;
 using AsyncAwaitBestPractices;
 using Enterwell.Clients.Wpf.Notifications;
 using GalaSoft.MvvmLight.Command;
+using GPhotosMirror.Views;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using Onova;
 using Onova.Models;
@@ -26,6 +26,8 @@ namespace GPhotosMirror.Model
         private RelayCommand _logoutCommand;
         private RelayCommand _signInCommand;
         private RelayCommand _stopExecutionCommand;
+
+        private IWindow _window;
 
 
         public MainViewModel(GPhotosNotifications notificationMessageManager, BrowserInstance browserInstance,
@@ -49,7 +51,7 @@ namespace GPhotosMirror.Model
         public ICommand ChangePathCommand => _changePath ??= new RelayCommand(ChangePath);
 
 
-        public ICommand LogoutCommand => _logoutCommand ??= new RelayCommand(Logout);
+        public ICommand LogoutCommand => _logoutCommand ??= new RelayCommand(() => Logout().SafeFireAndForget());
 
         public ICommand StopExecutionCommand =>
             _stopExecutionCommand ??=
@@ -69,8 +71,13 @@ namespace GPhotosMirror.Model
 
         public BrowserInstance Browser { get; set; }
 
+        public event PropertyChangedEventHandler PropertyChanged;
 
-        public void ViewModelLoaded() => Initialize();
+        public void LoadWindow(IWindow window)
+        {
+            _window = window;
+            _window.OnLoaded = Initialize;
+        }
 
         public async Task OnUIContext(Action action, CancellationToken cancellationToken = default) =>
             await Task.Factory.StartNew(action, cancellationToken, TaskCreationOptions.None, TScheduler);
@@ -170,8 +177,9 @@ namespace GPhotosMirror.Model
             }
         }
 
-        public void Logout()
+        public async Task Logout()
         {
+            await Browser.Close();
             // Deletes cached users cookies
             Browser.DeleteUserData();
             User.IsSignedIn = false;
@@ -231,6 +239,7 @@ namespace GPhotosMirror.Model
 
                 User.IsSignedIn = true;
                 Log.Information($"Signed in as {User.UserName}.");
+                _window.BringWindowToFront();
 
                 LiteInstance liteDB = new LiteInstance(User.UserName, Settings);
                 liteDB.Initialize();
@@ -249,7 +258,8 @@ namespace GPhotosMirror.Model
             {
                 if (!User.IsSignedIn)
                 {
-                    if (e is TargetClosedException || (Browser.CurrentPageInstance!=null&&Browser.CurrentPageInstance.IsClosed))
+                    if (e is TargetClosedException ||
+                        Browser.CurrentPageInstance != null && Browser.CurrentPageInstance.IsClosed)
                     {
                         Log.Error($"Browser closed. Signing in ended.");
                     }
@@ -262,18 +272,13 @@ namespace GPhotosMirror.Model
                 {
                     Log.Error($"Error: {e}");
                 }
-
             }
 
             User.IsSigningIn = false;
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
-
         [Annotations.NotifyPropertyChangedInvocator]
-        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
-        {
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        }
     }
 }
