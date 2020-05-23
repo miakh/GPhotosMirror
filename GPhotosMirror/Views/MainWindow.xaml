@@ -54,7 +54,7 @@
                 <Button  HorizontalAlignment="Left"  VerticalAlignment="Top" Command="{Binding ChangePathCommand}" IsEnabled="{Binding MTE.IsExecuteButtonShowing}">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" >
                         <materialDesign:PackIcon Kind="Folder" Height="24" Width="24" />
-                        <TextBlock FontFamily="{StaticResource MaterialDesignFont}" FontSize="18" VerticalAlignment="Center"  Text=" Choose your folder with photos"></TextBlock>
+                        <TextBlock FontFamily="{StaticResource MaterialDesignFont}" FontSize="18" VerticalAlignment="Center" Margin="3,0,0,0" Text="Choose your folder with photos"></TextBlock>
                     </StackPanel>
                 </Button>
 
@@ -64,13 +64,13 @@
                 <Button Command="{Binding StopExecutionCommand}" Visibility="{Binding MTE.IsExecuteButtonShowing, Converter={StaticResource InvertedBooleanToVisibility}}" HorizontalAlignment="Left" VerticalAlignment="Top" >
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" >
                         <materialDesign:PackIcon Kind="StopCircle" Height="24" Width="24" />
-                        <TextBlock FontFamily="{StaticResource MaterialDesignFont}" FontSize="18" VerticalAlignment="Center"  Text=" Stop"></TextBlock>
+                        <TextBlock FontFamily="{StaticResource MaterialDesignFont}" FontSize="18" VerticalAlignment="Center" Margin="3,0,0,0" Text="Stop"></TextBlock>
                     </StackPanel>
                 </Button>
                 <Button  Command="{Binding ExecuteCommand}" IsEnabled="{Binding CanUpload}" Visibility="{Binding MTE.IsExecuteButtonShowing, Converter={StaticResource BooleanToVisibility}}" HorizontalAlignment="Left" VerticalAlignment="Top" >
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" >
                         <materialDesign:PackIcon Kind="CloudUpload" Height="24" Width="24" />
-                        <TextBlock FontFamily="{StaticResource MaterialDesignFont}" FontSize="18" VerticalAlignment="Center"  Text=" Upload"></TextBlock>
+                        <TextBlock FontFamily="{StaticResource MaterialDesignFont}" FontSize="18" VerticalAlignment="Center" Margin="3,0,0,0" Text="Upload"></TextBlock>
                     </StackPanel>
 
                 </Button>
@@ -84,13 +84,13 @@
                      IsEnabled="{Binding User.IsSigningIn, Converter={StaticResource InvertedBoolean}}"
                      HorizontalAlignment="Right" Margin="0,12,12,0" VerticalAlignment="Top" Command="{Binding SignInCommand}">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" >
-                    <TextBlock FontFamily="{StaticResource MaterialDesignFont}" FontSize="18" VerticalAlignment="Center"  Text=" Sign in"></TextBlock>
+                    <TextBlock FontFamily="{StaticResource MaterialDesignFont}" FontSize="18" VerticalAlignment="Center" Text="Sign in"></TextBlock>
                 </StackPanel>
             </Button>
             <Button Visibility="{Binding User.IsSignedIn, Converter={StaticResource BooleanToVisibility}}" HorizontalAlignment="Right" Margin="0,12,12,0" VerticalAlignment="Top" Command="{Binding LogoutCommand}">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" >
                     <materialDesign:PackIcon Kind="Logout" Height="24" Width="24" />
-                    <TextBlock FontFamily="{StaticResource MaterialDesignFont}" FontSize="18" VerticalAlignment="Center"  Text=" Sign out"></TextBlock>
+                    <TextBlock FontFamily="{StaticResource MaterialDesignFont}" FontSize="18" VerticalAlignment="Center"  Margin="3,0,0,0" Text="Sign out"></TextBlock>
                 </StackPanel>
             </Button>
             <TextBlock HorizontalAlignment="Right" Margin="0,12,12,0" Text="{Binding User.UserName}" TextWrapping="Wrap" VerticalAlignment="Top"/>
