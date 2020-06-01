@@ -232,7 +232,7 @@ namespace GPhotosMirror.Model
 
                 User.UserName = (await Browser.CurrentPageInstance.EvaluateExpressionAsync(
                     @"let username = function() {
-                            let elem = document.querySelector('.gb_tb');
+                            let elem = document.querySelector('div.gb_tb');
                             let userMail = elem.innerText;
                             return userMail;
                             };
