@@ -179,6 +179,7 @@ namespace GPhotosMirror.Model
 
         public async Task Logout()
         {
+            // Close Browser so you can delete cached files (user data)
             await Browser.Close();
             // Deletes cached users cookies
             Browser.DeleteUserData();
@@ -231,8 +232,8 @@ namespace GPhotosMirror.Model
 
                 User.UserName = (await Browser.CurrentPageInstance.EvaluateExpressionAsync(
                     @"let username = function() {
-                            let elem = document.querySelectorAll('.gb_pe div');
-                            let userMail = elem[elem.length-1].innerText;
+                            let elem = document.querySelector('.gb_tb');
+                            let userMail = elem.innerText;
                             return userMail;
                             };
                             username();")).ToObject<string>();
